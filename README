@@ -1,7 +1,7 @@
 tgraph.py - plot 1D and 2D data files
 =====================================
 
-This is a GTK port of ![tgraph](https://github.com/wofti/tgraph). The original script is using TK, which will not work with Wayland, and looks bad on HiDPi monitors. This working in progress GTK3 port will solve that, because GTK weights:
+This is a GTK port of ![tgraph](https://github.com/wofti/tgraph). The original script is using TK, which will not work with Wayland, and looks bad on HiDPi monitors. This working in progress GTK3 port will solve that, because GTK widgets:
 - automatically works natively with either Xorg or Wayland,
 - automatically follows your global HiDPi setting,
 - and fits your global desktop GTK theme.
