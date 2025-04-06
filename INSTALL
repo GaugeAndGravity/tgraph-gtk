@@ -1,3 +1,11 @@
+DEPENDENCE
+
+This will depend on:
+- Python3 (yes, this port only consider `python3`)
+- `matplotlib`: to plot data
+- `numpy`: to deal with data
+- `pygobject`: to draw GTK3 window
+
 INSTALLATION
 	Make a symbolic link to tgraph.py, e.g. by entering:
 		ln -s ~/tgraph/tgraph.py ~/bin/tgraph.py

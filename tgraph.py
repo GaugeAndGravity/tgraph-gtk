@@ -1,88 +1,72 @@
-#!/usr/bin/env python
-
-# tgraph - a python based program to plot 1D and 2D data files
-# Copyright (C) 2015 Wolfgang Tichy
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import sys
-
-# check python version
-if sys.version_info[0] < 3:
-  from Tkinter import *
-  if sys.version_info[1] > 6:
-    from ttk import *        # overrides some tkinter stuff
-  import tkFileDialog as filedialog
-else:
-  from tkinter import *
-  from tkinter.ttk import *  # overrides some tkinter stuff
-  import tkinter.filedialog as filedialog
-
-# for 2d
-import matplotlib as mpl
-# for 3d
-from mpl_toolkits.mplot3d import  axes3d,Axes3D
-from matplotlib import cm
-# for tkinter
-mpl.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-try:
-  from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as NavToolbar
-except:
-  from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg as NavToolbar
-# since "import matplotlib as mpl" does not import figure we get it explicitly
-from matplotlib.figure import Figure
-
+import os
 import numpy as np
 
-# my data classes
+# -----------------------
+#  0) Python 版本检查
+# -----------------------
+if sys.version_info[0] < 3:
+    print("Please use Python 3 or above.")
+    sys.exit(1)
+
+# -----------------------
+#  1) 设置 matplotlib 后端为 GTK3Agg
+# -----------------------
+import matplotlib
+matplotlib.use("GTK3Agg")
+
+import matplotlib.cm as cm
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_gtk3agg import (
+    FigureCanvasGTK3Agg as FigureCanvas
+)
+from matplotlib.backends.backend_gtk3 import NavigationToolbar2GTK3 as NavigationToolbar
+
+
+# -----------------------
+#  2) 导入 PyGObject
+# -----------------------
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib
+
+# -----------------------
+#  3) 导入 tdata.py
+# -----------------------
 import tdata
 
-######################################################################
-# tgraph version number
-tgraph_version = "1.9"
-print('tgraph', tgraph_version)
+# -----------------------------------------------------------------------------------
+#          以下部分为原 tgraph.py 中的数据处理、命令行解析、全局变量等
+# -----------------------------------------------------------------------------------
 
-# get dir where tdata.py is found, and construct filename of tgraph.txt
-import os
-tdata_dir = os.path.dirname(tdata.__file__)
-tgraph_txt_file = os.path.join(tdata_dir, 'tgraph.txt')
+tgraph_version = "GTK-ported-1.0"
 
-######################################################################
-# default cols:
+print("GTK tgraph version:", tgraph_version)
+
+# 默认列
 xcol = 0
 ycol = 1
 zcol = 2
 vcol = 1
-#print('Default cols:', xcol+1,ycol+1,zcol+1,':', vcol+1)
-print('Default cols:', xcol+1,ycol+1,':', vcol+1)
+print("Default cols:", xcol+1, ycol+1, ":", vcol+1)
 
-# default stride
 graph_stride = 1
 
-######################################################################
-# load data from command line arguments
+# 解析命令行，构造 filelist
 filelist = tdata.tFileList()
 argvs = sys.argv[1:]
-print('Trying to open files:')
+print("Trying to open files:")
+
 gotC = 0
 gotx = 0
 goty = 0
 gotv = 0
 gots = 0
 gott = 0
-timelabel_str = 'time'
+timelabel_str = "time"
 got_xrange = 0
 got_yrange = 0
 got_vrange = 0
@@ -91,310 +75,135 @@ inCBrack = 0
 openSBrack = 0
 inSBrack = 0
 endSBrack = 0
+
 for argv in argvs:
-  # check for new -c opt
-  pos = argv.find('-c')
-  if pos == 0:
-    gotC = 1
-    continue
-  # check for new -x opt
-  pos = argv.find('-x')
-  if pos == 0:
-    gotx = 1
-    continue
-  # check for new -y opt
-  pos = argv.find('-y')
-  if pos == 0:
-    goty = 1
-    continue
-  # check for new -v opt
-  pos = argv.find('-v')
-  if pos == 0:
-    gotv = 1
-    continue
-  # check for new -s opt
-  pos = argv.find('-s')
-  if pos == 0:
-    gots = 1
-    continue
-  # check for new -t opt
-  pos = argv.find('-t')
-  if pos == 0:
-    gott = 1
-    continue
-  # check for -m opt
-  pos = argv.find('-m')
-  if pos == 0:
-    mpl.rcParams['lines.marker'] = 'o'
-    continue
-  # did we get -c opt?
-  if gotC == 1:
-    cols = argv.split(':')
-    xcol = int(cols[0])-1
-    if len(cols)==2:
-      vcol = int(cols[1])-1
-    if len(cols)==3:
-      ycol = int(cols[1])-1
-      vcol = int(cols[2])-1
-    # print('cols:', xcol+1,ycol+1,zcol+1,':', vcol+1)
-    print('cols:', xcol+1,ycol+1,':', vcol+1)
-    gotC = 0
-    continue
-  # did we get -x, -y or -v opts?
-  if gotx == 1 or goty == 1 or gotv == 1:
-    vrange = argv.split(':')
-    #print(vrange)
-    if gotx == 1:
-      graph_xmin = float(vrange[0])
-      graph_xmax = float(vrange[1])
-      got_xrange = 1
-    if goty == 1:
-      graph_ymin = float(vrange[0])
-      graph_ymax = float(vrange[1])
-      got_yrange = 1
-    if gotv == 1:
-      graph_vmin = float(vrange[0])
-      graph_vmax = float(vrange[1])
-      got_vrange = 1
-    gotx = 0
-    goty = 0
-    gotv = 0
-    continue
-  # did we get -s opts?
-  if gots == 1:
-    graph_stride = int(argv)
-    gots = 0
-    continue
-  # did we get -t opts?
-  if gott == 1:
-    timelabel_str = str(argv).lower()
-    gott = 0
-    continue
-  # check for brackets, is there a '{' or a '}'
-  pos = argv.find('{')
-  if pos == 0:
-    openCBrack = 1
-    inCBrack = 0
-    continue
-  pos = argv.find('}')
-  if pos == 0:
-    openCBrack = 0
-    inCBrack = 0
-    continue
-  # check for brackets, is there a '[' or a ']'
-  pos = argv.find('[')
-  if pos == 0:
-    openSBrack = 1
-    inSBrack = 0
-    endSBrack = 0
-    continue
-  pos = argv.find(']')
-  if pos == 0:
-    openSBrack = 0
-    inSBrack = 0
-    endSBrack = 1
-    # no continue here
-  if endSBrack == 1:
-    endSBrack = 0
-  else:
-    # if we get here, there was no opt, so we have a filename
-    filelist.add(argv, timelabel_str)
-    # print('cols:', xcol+1,ycol+1,zcol+1,':', vcol+1)
-    print(filelist.file[-1].filename)
-    #for tf in filelist.file[-1].data.timeframes:
-    #  print('blocks =', tf.blocks)
-    # set cols for the last file added
-    filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
-  # are we in a [ ] block so that we have to append a file?
-  if inSBrack == 1:
-    filelist.append_file_i2_to_i1(-2, -1)
-    continue
-  if openSBrack == 1:
-    inSBrack = 1
-    openSBrack = 0
-    continue
-  # are we in a { } block so that we have to merge files?
-  if inCBrack == 1:
-    # print(filelist.file)
-    filelist.merge_file_i2_into_i1(-2, -1)
-  if openCBrack == 1:
-    inCBrack = 1
-    openCBrack = 0
+    if argv.startswith("-c"):
+        gotC = 1
+        continue
+    elif argv.startswith("-x"):
+        gotx = 1
+        continue
+    elif argv.startswith("-y"):
+        goty = 1
+        continue
+    elif argv.startswith("-v"):
+        gotv = 1
+        continue
+    elif argv.startswith("-s"):
+        gots = 1
+        continue
+    elif argv.startswith("-t"):
+        gott = 1
+        continue
+    elif argv.startswith("-m"):
+        matplotlib.rcParams['lines.marker'] = 'o'
+        continue
 
-#for f in filelist.file:
-#  print("timeframes of", f.name, "after merge")
-#  for tf in f.data.timeframes:
-#    print(tf.time)
-#    print(tf.data)
+    # 处理 -c 后跟的 “xcol:vcol” 或 “xcol:ycol:vcol”
+    if gotC == 1:
+        cols = argv.split(":")
+        xcol = int(cols[0]) - 1
+        if len(cols) == 2:
+            vcol = int(cols[1]) - 1
+        elif len(cols) == 3:
+            ycol = int(cols[1]) - 1
+            vcol = int(cols[2]) - 1
+        print("cols:", xcol+1, ycol+1, ":", vcol+1)
+        gotC = 0
+        continue
 
-if len(filelist.file) == 0:
-  print('no files given on command line\n')
-  print('Purpose of tgraph.py:')
-  print('We can show and animate data from files that contain multiple timeframes.')
-  print('Each timeframe consists of a timelabel and a number of data columns. E.g.:')
-  print('# time = 1.0')
-  print('1   2')
-  print('2   5')
-  print('3  10\n')
-  print('Usage:')
-  print('tgraph.py [-c 1:2[:3]] File1 File2 ... { FileX FileF } ... [ f_t1 f_t2 ]\n')
-  print('Options:')
-  print('-c  specifies which columns to select')
-  print('{ } one can add columns from different files by enclosing files in { }')
-  print('[ ] one can add timeframes from different files by enclosing files in [ ]')
-  print('-x , -y , -v  specify x-, y-, value-ranges, format is: -v vmin:vmax')
-  print('-t  specifies timelabel, default is: -t time')
-  print('-s  specifies stride (or step size) used to sample input data')
-  print('-m  mark each point\n')
-  print('Examples:')
-  print('# select cols 1,2 in file1 and cols 1,4 of file2,file3 added together:')
-  print('tgraph.py -c 1:2 file1 -c 1:4 { file2 file3 }')
-  print('# select cols 1,2,4 from t1.vtk,t2.vtk,t3.vtk that contain one timeframe each:')
-  print('tgraph.py -s 10 -c 1:2:4 [ t1.vtk t2.vtk t3.vtk ]')
-  print('# select x- and value-ranges for data in file1 and mark points:')
-  print('tgraph.py -x 1:5 -v 0:2 -m file1')
-  # exit(1)
+    # 处理 -x/-y/-v 后跟的 “min:max”
+    if gotx == 1 or goty == 1 or gotv == 1:
+        parts = argv.split(":")
+        if len(parts) == 2:
+            mn = float(parts[0])
+            mx = float(parts[1])
+            if gotx:
+                graph_xmin, graph_xmax = mn, mx
+                got_xrange = 1
+            elif goty:
+                graph_ymin, graph_ymax = mn, mx
+                got_yrange = 1
+            else:
+                graph_vmin, graph_vmax = mn, mx
+                got_vrange = 1
+        gotx = goty = gotv = 0
+        continue
 
-######################################################################
-# root window for app
-root = Tk()
-root.wm_title("tgraph")
+    # 处理 -s
+    if gots == 1:
+        graph_stride = int(argv)
+        gots = 0
+        continue
 
-######################################################################
-# init global dictionaries
+    # 处理 -t
+    if gott == 1:
+        timelabel_str = str(argv).lower()
+        gott = 0
+        continue
 
-# dictionaries with labels and legend
-graph_labelsOn = 0
-graph_labels = {}
-graph_labels['title'] = ''
-graph_labels['x-axis'] = ''
-graph_labels['y-axis'] = ''
-graph_labels['v-axis'] = ''
-graph_labels['fontsize'] = mpl.rcParams['font.size']
-graph_labels['timeformat'] = '%g'
-graph_legendOn = 0
-graph_legend = {}
-graph_legend['fontsize'] = mpl.rcParams['font.size']
-graph_legend['loc']      = 'upper right'
-graph_legend['ncol']     = 1
-graph_legend['fancybox']     = mpl.rcParams['legend.fancybox']
-graph_legend['shadow']       = mpl.rcParams['legend.shadow']
-if mpl.__version__ > '1.4.2':
-  graph_legend['frameon']      = mpl.rcParams['legend.frameon']
-  graph_legend['framealpha']   = mpl.rcParams['legend.framealpha']
-graph_legend['handlelength'] = mpl.rcParams['legend.handlelength']
-
-# dictionary with settings for graph
-graph_settings = {}
-if mpl.__version__ >= '1.4.2':
-  graph_settings['colormap'] = 'coolwarm'
-else:
-  graph_settings['colormap'] = 'jet'
-graph_settings['linewidth'] = mpl.rcParams['lines.linewidth']
-graph_settings['antialiased'] = 0
-graph_settings['shade'] = 1
-graph_settings['edgecolor'] = 'none'
-
-# dictionary with settings for graph, where we need to setup axes after change
-graph_limits = {}
-
-# dictionaries with lines colors, styles, markers and widths
-graph_linecolors = {}
-graph_linestyles = {}
-graph_linemarkers = {}
-graph_linemarkersizes = {}
-graph_linewidths = {}
-
-# dictionaries with transformations
-graph_coltrafos = {}
-
-######################################################################
-# functions needed early
-
-# function to add file by # to global dictionaries
-def set_graph_globals_for_file_i(filelist, i):
-  global graph_legend
-  global graph_linecolors
-  global graph_linestyles
-  global graph_linemarkers
-  global graph_linemarkersizes
-  global graph_linewidths
-  global graph_coltrafos
-  f = filelist.file[i]
-  graph_legend['#'+str(i)] = f.name
-  # can we use axes.prop_cycle ?
-  if mpl.__version__ < '1.5.1': # use axes.color_cycle below Matplotlib 1.5.1
-    if mpl.__version__ < '1.4.2':
-      color_cycle = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
+    # 处理 { } [ ] 等文件合并语法
+    if argv == "{":
+        openCBrack = 1
+        inCBrack = 0
+        continue
+    elif argv == "}":
+        openCBrack = 0
+        inCBrack = 0
+        continue
+    elif argv == "[":
+        openSBrack = 1
+        inSBrack = 0
+        endSBrack = 0
+        continue
+    elif argv == "]":
+        openSBrack = 0
+        inSBrack = 0
+        endSBrack = 1
     else:
-      color_cycle = mpl.rcParams['axes.color_cycle']
-    ncolors = len(color_cycle)
-    graph_linecolors['#'+str(i)] = color_cycle[i%ncolors]
-  else: # use axes.prop_cycle for all other versions
-    cycle_list = list(mpl.rcParams['axes.prop_cycle'])
-    ncolors = len(cycle_list)
-    graph_linecolors['#'+str(i)] = cycle_list[i%ncolors]['color']
-  graph_linestyles['#'+str(i)] = '-'
-  marker = mpl.rcParams['lines.marker']
-  markersize = mpl.rcParams['lines.markersize']
-  graph_linemarkers['#'+str(i)] = marker
-  graph_linemarkersizes['#'+str(i)] = markersize
-  graph_linewidths['#'+str(i)] = ''
-  graph_coltrafos['#'+str(i)] = ''
+        # 视作文件名
+        filelist.add(argv, timelabel_str)
+        print(filelist.file[-1].filename)
+        filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
+        if inSBrack:
+            filelist.append_file_i2_to_i1(-2, -1)
+        if openSBrack:
+            inSBrack = 1
+            openSBrack = 0
+        if inCBrack:
+            filelist.merge_file_i2_into_i1(-2, -1)
+        if openCBrack:
+            inCBrack = 1
+            openCBrack = 0
 
-# specify a file graphically
-def open_file():
-  global filelist
-  global xcol
-  global ycol
-  global vcol
-  global timelabel_str
-  global graph_timelist
-  fname = filedialog.askopenfilename(title='Enter Data File Name')
-  if len(fname) == 0:  # if user presses cancel fname is () or '', so exit
-    return
-  filelist.add(fname, timelabel_str)
-  # print('cols:', xcol+1,ycol+1,zcol+1,':', vcol+1)
-  i = len(filelist.file)-1
-  print(filelist.file[i].filename)
-  # set cols for the last file added
-  filelist.file[i].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
-  set_graph_globals_for_file_i(filelist, i)
-  # update time min and max
-  graph_timelist = filelist.get_timelist()
-
-######################################################################
-
-# no file was given on command line, ask for one now
+# 若未传入任何文件，打印帮助退出
 if len(filelist.file) == 0:
-  open_file()
+    print("No files given on command line.\nExample usage:")
+    print("  ./gtk_tgraph_full.py file1 file2 -c 1:2")
+    sys.exit(1)
 
-if len(filelist.file) == 0:
-  # print('\nNo files found!')
-  exit(1)
+# 为所有文件设置列并初始化
+for i in range(len(filelist.file)):
+    filelist.file[i].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
 
-# add all files to to global dictionaries
-for i in range(0, len(filelist.file)):
-  set_graph_globals_for_file_i(filelist, i)
-
-######################################################################
-# set global vars
 graph_time = filelist.mintime()
 graph_timelist = filelist.get_timelist()
 graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
-graph_delay = 1
-if got_xrange != 1:
-  graph_xmin = tdata.inf_to_1e300(filelist.minx())
-  graph_xmax = tdata.inf_to_1e300(filelist.maxx())
-if got_yrange != 1:
-  graph_ymin = tdata.inf_to_1e300(filelist.miny())
-  graph_ymax = tdata.inf_to_1e300(filelist.maxy())
-#if got_zrange != 1:
-  #graph_zmin = tdata.inf_to_1e300(filelist.minz())
-  #graph_zmax = tdata.inf_to_1e300(filelist.maxz())
-if got_vrange != 1:
-  graph_vmin = tdata.inf_to_1e300(filelist.minv())
-  graph_vmax = tdata.inf_to_1e300(filelist.maxv())
+
+# 如果命令行未指定 x/y/v 范围，则从数据中自动获取
+if not hasattr(sys.modules[__name__], 'graph_xmin'):
+    graph_xmin = tdata.inf_to_1e300(filelist.minx())
+    graph_xmax = tdata.inf_to_1e300(filelist.maxx())
+if not hasattr(sys.modules[__name__], 'graph_ymin'):
+    graph_ymin = tdata.inf_to_1e300(filelist.miny())
+    graph_ymax = tdata.inf_to_1e300(filelist.maxy())
+if not hasattr(sys.modules[__name__], 'graph_vmin'):
+    graph_vmin = tdata.inf_to_1e300(filelist.minv())
+    graph_vmax = tdata.inf_to_1e300(filelist.maxv())
+
+# -----------------------
+#   一些全局状态
+# -----------------------
 graph_3dOn = 0
 graph_axis_on = 1
 graph_plot_surface = 0
@@ -402,886 +211,1066 @@ graph_plot_scatter = 0
 graph_clear_on_replot = 1
 graph_plot_closest_t = 1
 graph_plot_grid = 1
-# graph_colormap =
-exec('graph_colormap=cm.'+str(graph_settings['colormap']))
+# colormap
+graph_colormap_str = "coolwarm"  # 比如 "jet" 或 "coolwarm"
+graph_colormap = getattr(cm, graph_colormap_str)
 
-######################################################################
-# add some global vars to dictionaries
-graph_settings['stride'] = graph_stride
-graph_limits['xmin'] = graph_xmin
-graph_limits['xmax'] = graph_xmax
-graph_limits['ymin'] = graph_ymin
-graph_limits['ymax'] = graph_ymax
-graph_limits['vmin'] = graph_vmin
-graph_limits['vmax'] = graph_vmax
+# -----------------------
+#   字典存储相关设置
+# -----------------------
+graph_labelsOn = 0
+graph_labels = {
+    'title': '',
+    'x-axis': '',
+    'y-axis': '',
+    'v-axis': '',
+    'fontsize': matplotlib.rcParams['font.size'],
+    'timeformat': '%g'
+}
 
-######################################################################
-# functions
+graph_legendOn = 0
+graph_legend = {
+    'fontsize': matplotlib.rcParams['font.size'],
+    'loc': 'upper right',
+    'ncol': 1,
+    'fancybox': matplotlib.rcParams['legend.fancybox'],
+    'shadow': matplotlib.rcParams['legend.shadow']
+}
+if hasattr(matplotlib.rcParams, 'legend.frameon'):
+    graph_legend['frameon'] = matplotlib.rcParams['legend.frameon']
+if hasattr(matplotlib.rcParams, 'legend.framealpha'):
+    graph_legend['framealpha'] = matplotlib.rcParams['legend.framealpha']
+graph_legend['handlelength'] = matplotlib.rcParams['legend.handlelength']
 
-# setup ax for either 2d or 3d plots
-def setup_axes(fig, graph_3dOn, ax=None):
-  if ax != None:
-    fig.delaxes(ax)
-  if graph_3dOn == 0:
-    # make 2d ax to plot graph
-    ax = fig.add_subplot(111)
-    ax.set_xlim(graph_xmin, graph_xmax)
-    ax.set_ylim(graph_vmin, graph_vmax)
-  else:
-    # make 3d ax to plot graph
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlim(graph_xmin, graph_xmax)
-    ax.set_ylim(graph_ymin, graph_ymax)
-    ax.set_zlim(graph_vmin, graph_vmax)
-  return ax
+graph_settings = {
+    'colormap': graph_colormap_str,
+    'linewidth': matplotlib.rcParams['lines.linewidth'],
+    'antialiased': 0,
+    'shade': 1,
+    'edgecolor': 'none',
+    'stride': graph_stride
+}
 
-# plot into ax at time t
-def axplot2d_at_time(filelist, canvas, ax, t):
-  global graph_clear_on_replot
-  xlim = ax.get_xlim()
-  ylim = ax.get_ylim()
-  xscale = ax.get_xscale()
-  yscale = ax.get_yscale()
-  if graph_clear_on_replot == 1:
-    ax.clear()
-  ct = graph_plot_closest_t
-  for i in range(0, len(filelist.file)):
-    f = filelist.file[i]
-    msiz=graph_linemarkersizes['#'+str(i)]
-    if graph_plot_scatter == 1:
-      mark=str(graph_linemarkers['#'+str(i)])
-      if mark == '' or mark == 'None':
-        mark='o'
-      ax.scatter(f.data.getx(t,ct), f.data.getv(t,ct), label=f.name,
-                 color=graph_linecolors['#'+str(i)], marker=mark)
-    elif str(graph_linewidths['#'+str(i)]) == '':
-      ax.plot(f.data.getx(t,ct), f.data.getv(t,ct), label=f.name,
-              color=graph_linecolors['#'+str(i)],
-              linestyle=graph_linestyles['#'+str(i)],
-              marker=graph_linemarkers['#'+str(i)],
-              markersize=msiz)
+graph_limits = {
+    'xmin': graph_xmin,
+    'xmax': graph_xmax,
+    'ymin': graph_ymin,
+    'ymax': graph_ymax,
+    'vmin': graph_vmin,
+    'vmax': graph_vmax
+}
+
+graph_linecolors = {}
+graph_linestyles = {}
+graph_linemarkers = {}
+graph_linemarkersizes = {}
+graph_linewidths = {}
+graph_coltrafos = {}
+
+# 初始化时，为每个文件分配一个默认颜色
+def set_graph_globals_for_file_i(filelist, i):
+    # 类似 tgraph.py 对 color_cycle 的使用
+    if matplotlib.__version__ < '1.5.1':
+        # 老版本 color_cycle
+        color_cycle = matplotlib.rcParams.get('axes.color_cycle', [
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+            '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+            '#bcbd22', '#17becf'
+        ])
+        c = color_cycle[i % len(color_cycle)]
     else:
-      ax.plot(f.data.getx(t,ct), f.data.getv(t,ct), label=f.name,
-              color=graph_linecolors['#'+str(i)],
-              linewidth=float(graph_linewidths['#'+str(i)]),
-              linestyle=graph_linestyles['#'+str(i)],
-              marker=graph_linemarkers['#'+str(i)],
-              markersize=msiz)
-  ax.set_xlim(xlim)
-  ax.set_ylim(ylim)
-  ax.set_xscale(xscale)
-  ax.set_yscale(yscale)
-  if graph_labelsOn == 1:
+        # axes.prop_cycle
+        cycle_list = list(matplotlib.rcParams['axes.prop_cycle'])
+        c = cycle_list[i % len(cycle_list)]['color']
+
+    graph_linecolors[f"#{i}"] = c
+    graph_linestyles[f"#{i}"] = "-"
+    graph_linemarkers[f"#{i}"] = matplotlib.rcParams['lines.marker']
+    graph_linemarkersizes[f"#{i}"] = matplotlib.rcParams['lines.markersize']
+    graph_linewidths[f"#{i}"] = ""
+    graph_coltrafos[f"#{i}"] = ""
+    # graph_legend 中存储该文件的名字
+    graph_legend[f"#{i}"] = filelist.file[i].name
+
+for i in range(len(filelist.file)):
+    set_graph_globals_for_file_i(filelist, i)
+
+print("(tmin, tmax) =", filelist.mintime(), filelist.maxtime())
+print("(xmin, xmax) =", graph_xmin, graph_xmax)
+print("(ymin, ymax) =", graph_ymin, graph_ymax)
+print("(vmin, vmax) =", graph_vmin, graph_vmax)
+print("stride =", graph_stride)
+
+# -----------------------------------------------------------------------------------
+#   2D/3D 绘图函数
+# -----------------------------------------------------------------------------------
+def axplot2d_at_time(filelist, ax, t):
+    if graph_clear_on_replot:
+        ax.clear()
+    for i in range(len(filelist.file)):
+        f = filelist.file[i]
+        xs = f.data.getx(t, graph_plot_closest_t)
+        ys = f.data.getv(t, graph_plot_closest_t)  # ycol -> vcol
+        color = graph_linecolors.get(f"#{i}", "blue")
+        style = graph_linestyles.get(f"#{i}", "-")
+        marker = graph_linemarkers.get(f"#{i}", "")
+        markersz = graph_linemarkersizes.get(f"#{i}", 6)
+        lw = graph_linewidths.get(f"#{i}", "")
+        if lw != "":
+            lw = float(lw)
+
+        if graph_plot_scatter:
+            if not marker:
+                marker = "o"
+            ax.scatter(xs, ys, label=f.name, color=color, marker=marker)
+        else:
+            ax.plot(xs, ys, label=f.name, color=color,
+                    linestyle=style, marker=marker, markersize=markersz,
+                    linewidth=lw if lw else None)
+
+    ax.set_xlim(graph_limits['xmin'], graph_limits['xmax'])
+    ax.set_ylim(graph_limits['vmin'], graph_limits['vmax'])
     ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
     ax.set_ylabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
-    ax.set_title(graph_labels['title'])
-    tf = graph_labels['timeformat']
-    if len(tf) > 0:
-      tstr = tf % t
-      ax.set_title(tstr, loc='right')
-  if graph_legendOn == 1:
-    ax.legend(fontsize=graph_legend['fontsize'], loc=graph_legend['loc'],
-              ncol=graph_legend['ncol'])
-  if graph_plot_grid == 1:
-    ax.grid(True)
 
-# plot into ax at time t, in 3d
-def axplot3d_at_time(filelist, canvas, ax, t):
-  global graph_stride
-  global graph_colormap
-  global graph_clear_on_replot
-  xlim = ax.get_xlim()
-  ylim = ax.get_ylim()
-  zlim = ax.get_zlim()
-  xscale = ax.get_xscale()
-  yscale = ax.get_yscale()
-  zscale = ax.get_zscale()
-  if graph_clear_on_replot == 1:
-    ax.clear()
-  ct = graph_plot_closest_t
-  for i in range(0, len(filelist.file)):
-    f = filelist.file[i]
-    blocks = f.data.getblocks(t)
-    if blocks < 2 and graph_plot_surface == 1:
-      print('3D plot will work only with wireframe, because input data had no empty lines.')
-    reshaper = (blocks, -1)
-    x=np.reshape(f.data.getx(t,ct), reshaper)
-    y=np.reshape(f.data.gety(t,ct), reshaper)
-    v=np.reshape(f.data.getv(t,ct), reshaper)
-    #print(x,y,v)
-    if graph_plot_surface == 1:
-      if str(graph_settings['colormap']) == '':
-        ax.plot_surface(x,y, v, rstride=graph_stride,cstride=graph_stride,
-                        label=f.name, color=graph_linecolors['#'+str(i)],
-                        antialiased=int(graph_settings['antialiased']),
-                        shade=int(graph_settings['shade']),
-                        linewidth=float(graph_settings['linewidth']),
-                        edgecolor=graph_settings['edgecolor'])
-      else:
-        ax.plot_surface(x,y, v, rstride=graph_stride,cstride=graph_stride,
-                        label=f.name, cmap=graph_colormap,
-                        antialiased=int(graph_settings['antialiased']),
-                        shade=int(graph_settings['shade']),
-                        linewidth=float(graph_settings['linewidth']),
-                        edgecolor=graph_settings['edgecolor'])
-    else:
-      if graph_plot_scatter == 1:
-        mark=str(graph_linemarkers['#'+str(i)])
-        if mark == '' or mark == 'None':
-          mark='o'
-        ax.scatter(x,y, v, label=f.name,
-                   color=graph_linecolors['#'+str(i)], marker=mark)
-      else:
-        ax.plot_wireframe(x,y, v, rstride=graph_stride,cstride=graph_stride,
-                          label=f.name, color=graph_linecolors['#'+str(i)])
-  # this does not seem to work in 3d:
-  #ax.set_xlim(xlim)
-  #ax.set_ylim(ylim)
-  #ax.set_zlim(zlim)
-  #ax.set_xscale(xscale)
-  #ax.set_yscale(yscale)
-  #ax.set_zscale(zscale)
-  ax.set_xlim(graph_xmin, graph_xmax)
-  ax.set_ylim(graph_ymin, graph_ymax)
-  ax.set_zlim(graph_vmin, graph_vmax)
-  if graph_labelsOn == 1:
+    # 标题与时间
+    title = graph_labels['title']
+    tf = graph_labels['timeformat']
+    if tf:
+        tstr = tf % t
+        # 标题右对齐显示时间
+        title += "    " + tstr
+    ax.set_title(title)
+
+    if graph_plot_grid:
+        ax.grid(True)
+    if graph_legendOn:
+        ax.legend(fontsize=graph_legend['fontsize'],
+                  loc=graph_legend['loc'],
+                  ncol=graph_legend['ncol'])
+
+    if not graph_axis_on:
+        ax.set_axis_off()
+
+def axplot3d_at_time(filelist, ax, t):
+    """
+    与原 tgraph.py 类似，以 x, y 为面上坐标，v 为 z。
+    """
+    from mpl_toolkits.mplot3d import axes3d
+    if graph_clear_on_replot:
+        ax.clear()
+
+    for i in range(len(filelist.file)):
+        f = filelist.file[i]
+        # 读取 blocks 以判断数据换行
+        blocks = f.data.getblocks(t)
+        # 变形
+        x = np.reshape(f.data.getx(t, graph_plot_closest_t), (blocks, -1))
+        y = np.reshape(f.data.gety(t, graph_plot_closest_t), (blocks, -1))
+        z = np.reshape(f.data.getv(t, graph_plot_closest_t), (blocks, -1))
+
+        color = graph_linecolors.get(f"#{i}", "blue")
+        marker = graph_linemarkers.get(f"#{i}", "")
+        lw = graph_linewidths.get(f"#{i}", "")
+        if lw != "":
+            lw = float(lw)
+
+        if graph_plot_surface:
+            if graph_settings['colormap']:
+                colormap_obj = getattr(cm, graph_settings['colormap'])
+                ax.plot_surface(x, y, z,
+                                rstride=graph_stride, cstride=graph_stride,
+                                cmap=colormap_obj,
+                                linewidth=float(graph_settings['linewidth']),
+                                antialiased=int(graph_settings['antialiased']),
+                                shade=int(graph_settings['shade']),
+                                edgecolor=graph_settings['edgecolor'])
+            else:
+                ax.plot_surface(x, y, z,
+                                rstride=graph_stride, cstride=graph_stride,
+                                color=color,
+                                linewidth=float(graph_settings['linewidth']),
+                                antialiased=int(graph_settings['antialiased']),
+                                shade=int(graph_settings['shade']),
+                                edgecolor=graph_settings['edgecolor'])
+        else:
+            if graph_plot_scatter:
+                if not marker:
+                    marker = "o"
+                ax.scatter(x, y, z, color=color, marker=marker, label=f.name)
+            else:
+                ax.plot_wireframe(x, y, z,
+                                  rstride=graph_stride, cstride=graph_stride,
+                                  color=color, linewidth=lw if lw else None,
+                                  label=f.name)
+
+    ax.set_xlim(graph_limits['xmin'], graph_limits['xmax'])
+    ax.set_ylim(graph_limits['ymin'], graph_limits['ymax'])
+    ax.set_zlim(graph_limits['vmin'], graph_limits['vmax'])
+
     ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
     ax.set_ylabel(graph_labels['y-axis'], fontsize=graph_labels['fontsize'])
     ax.set_zlabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
-    ax.set_title(graph_labels['title'])
+
+    title = graph_labels['title']
     tf = graph_labels['timeformat']
-    if len(tf) > 0:
-      tstr = tf % t
-      ax.set_title(tstr, loc='right')
-  # Note: legend does not work for surface. Is matplotlib broken???
-  if graph_legendOn == 1 and graph_plot_surface == 0:
-    ax.legend(fontsize=graph_legend['fontsize'], loc=graph_legend['loc'],
-              ncol=graph_legend['ncol'])
+    if tf:
+        tstr = tf % t
+        title += "    " + tstr
+    ax.set_title(title)
 
-def replot():
-  global filelist
-  global canvas
-  global ax
-  global graph_time
-  global graph_3dOn
-  global graph_axis_on
-  if graph_3dOn == 0:
-    axplot2d_at_time(filelist, canvas, ax, graph_time)
-  else:
-    axplot3d_at_time(filelist, canvas, ax, graph_time)
-  # print(ax.xaxis.tick_top())
-  if graph_axis_on == 0:
-    ax.set_axis_off()
-  canvas.draw()
+    # 注意 3D surface 不支持 legend
+    if graph_legendOn and not graph_plot_surface:
+        ax.legend()
 
-# callbacks for some events
-def update_graph_time_entry():
-  global tentry
-  global graph_time
-  tentry.delete(0, END)
-  tentry.insert(0, str(graph_time))
-  replot()
+    if not graph_axis_on:
+        ax.set_axis_off()
 
-def draw_legend():
-  ax.legend(fontsize=10)  # ax.legend() # (fontsize=8)
-  canvas.draw()
+graph_delay = 1  # 新增，用于控制播放的延时(ms)
 
-def toggle_log_xscale():
-  global ax
-  if ax.get_xscale() == 'linear':
-    ax.set_xscale('log')
-  else:
-    ax.set_xscale('linear')
-  # since matplotlib 3.6.3 (and possibly earlier)
-  # canvas.draw()
-  # doesn't plot correctly anymore, so now we call replot()
-  replot()
-
-def toggle_log_yscale():
-  global ax
-  if ax.get_yscale() == 'linear':
-    ax.set_yscale('log')
-  else:
-    ax.set_yscale('linear')
-  # since matplotlib 3.6.3 (and possibly earlier)
-  # canvas.draw()
-  # doesn't plot correctly anymore, so now we call replot()
-  replot()
-
-def toggle_plot_grid():
-  global graph_plot_grid
-  if graph_plot_grid == 1:
-    graph_plot_grid = 0
-  else:
-    graph_plot_grid = 1
-  replot()
-
-def toggle_axis_on():
-  global graph_axis_on
-  if graph_axis_on == 1:
-    graph_axis_on = 0
-  else:
-    graph_axis_on = 1
-  replot()
-
-def toggle_2d_3d():
-  global fig
-  global graph_3dOn
-  global ax
-  if graph_3dOn == 1:
-    graph_3dOn = 0
-  else:
-    graph_3dOn = 1
-  ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-def toggle_wireframe_surface():
-  global fig
-  global graph_3dOn
-  global ax
-  global graph_plot_surface
-  global graph_plot_scatter
-  if graph_plot_surface == 1:
-    graph_plot_surface = 0
-  else:
-    graph_plot_surface = 1
-  # ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-def toggle_wireframe_scatter():
-  global fig
-  global graph_3dOn
-  global ax
-  global graph_plot_surface
-  global graph_plot_scatter
-  if graph_plot_surface == 1:
-    graph_plot_scatter = 0
-    graph_plot_surface = 0
-  if graph_plot_scatter == 1:
-    graph_plot_scatter = 0
-  else:
-    graph_plot_scatter = 1
-  # ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-def toggle_labels():
-  global graph_labelsOn
-  if graph_labelsOn == 1:
-    graph_labelsOn = 0
-  else:
-    graph_labelsOn = 1
-  replot()
-
-def toggle_legend():
-  global graph_legendOn
-  if graph_legendOn == 1:
-    graph_legendOn = 0
-  else:
-    graph_legendOn = 1
-  replot()
-
-def toggle_clear_on_replot():
-  global graph_clear_on_replot
-  if graph_clear_on_replot == 1:
-    graph_clear_on_replot = 0
-  else:
-    graph_clear_on_replot = 1
-  replot()
-
-def toggle_plot_closest_t():
-  global graph_plot_closest_t
-  if graph_plot_closest_t == 1:
-    graph_plot_closest_t = 0
-  else:
-    graph_plot_closest_t = 1
-  replot()
-
-def BT1_callback(event):
-  print("clicked at", event.x, event.y)
-
-def not_implemented():
-  print("not implemented yet!")
-
-def set_graph_time(event, ent):
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  t = ent.get()
-  graph_timeindex = tdata.geti_from_t(graph_timelist, float(t))
-  graph_time = graph_timelist[graph_timeindex]
-  replot()
-
-def set_graph_delay(event, ent):
-  global graph_delay 
-  graph_delay = float(ent.get())
-
+# 新增：对时间值进行增/减、首/末帧、播放相关函数
 def min_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  graph_timeindex = 0
-  graph_time = graph_timelist[graph_timeindex]
-  update_graph_time_entry()
+    global graph_time, graph_timeindex
+    graph_timeindex = 0
+    graph_time = graph_timelist[graph_timeindex]
+    replot()
 
 def max_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  graph_timeindex = len(graph_timelist)-1
-  graph_time = graph_timelist[graph_timeindex]
-  update_graph_time_entry()
+    global graph_time, graph_timeindex
+    graph_timeindex = len(graph_timelist) - 1
+    graph_time = graph_timelist[graph_timeindex]
+    replot()
 
 def inc_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  if graph_timeindex<len(graph_timelist)-1:
-    graph_timeindex += 1
-  graph_time = graph_timelist[graph_timeindex]
-  update_graph_time_entry()
+    global graph_time, graph_timeindex
+    if graph_timeindex < len(graph_timelist) - 1:
+        graph_timeindex += 1
+    graph_time = graph_timelist[graph_timeindex]
+    replot()
 
 def dec_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  if graph_timeindex>0:
-    graph_timeindex -= 1
-  graph_time = graph_timelist[graph_timeindex]
-  update_graph_time_entry()
+    global graph_time, graph_timeindex
+    if graph_timeindex > 0:
+        graph_timeindex -= 1
+    graph_time = graph_timelist[graph_timeindex]
+    replot()
+
+# 播放时要有个全局变量存放计时器ID，以便停止
+playback_id = None
 
 def play_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  inc_graph_time()
-  if graph_timeindex<len(graph_timelist)-1:
-    play_id = root.after(int(graph_delay), play_graph_time)
-  else:
-    play_id = root.after(int(graph_delay), update_graph_time_entry)
-  def cancel_callback(event):
-    root.after_cancel(play_id)
-  root.bind("<Button-1>", cancel_callback)
+    """
+    每次调用时，把时间帧 +1 并 replot。如果还没到最后，则继续下一次定时。
+    如果到最后一帧，则停止。
+    """
+    global graph_timeindex, playback_id, graph_delay
+
+    inc_graph_time()  # 已经会 replot
+    if graph_timeindex < len(graph_timelist) - 1:
+        # 继续播放
+        playback_id = GLib.timeout_add(int(graph_delay), play_graph_time)
+    else:
+        playback_id = None  # 播放结束
 
 def start_play_graph_time():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  i1 = graph_timeindex
-  if i1>=len(graph_timelist)-1:
-    i1 = 0
-  graph_timeindex = i1
-  graph_time = graph_timelist[graph_timeindex]
-  update_graph_time_entry()
-  root.after(int(graph_delay), play_graph_time)
-
-def open_and_plot_file():
-  open_file()
-  replot()
-
-def save_movieframes():
-  global graph_time
-  global graph_timeindex
-  global graph_timelist
-  global fig
-  # get filename
-  fname = filedialog.asksaveasfilename(initialfile='frame.png',
-                          title='Enter base movie frame name with extension')
-  if len(fname) == 0:  # if user presses cancel fname is () or '', so exit
-    return
-  p = fname.rfind('.')
-  if p >= 0:
-    ext  = fname[p:]
-    base = fname[:p]
-  else:
-    ext  = ''
-    base = fname
-  # first and last time index
-  i1 = 0
-  i2 = len(graph_timelist)
-  # format (something like '%.6d') we use to print time index into filename
-  fmt = '%.'
-  fmt += '%d' % int( np.log10(i2)+1 )
-  fmt += 'd'
-  # loop over time indices
-  for graph_timeindex in range(i1, i2):
-    graph_time = graph_timelist[graph_timeindex]
-    update_graph_time_entry()
-    tstr = fmt % graph_timeindex
-    name = base + '_' + tstr + ext
-    canvas.print_figure(name)
-    if graph_timeindex == i1:
-      name1 = name
-  movie_message(name1, name)
-
-def movie_message(name1, name2):
-  top1 = Tk()
-  top1.wm_title("Movie Frame Info")
-  str =  ' Movie Frames have been saved in the files: \n'
-  str += '   ' + name1 + ' ... ' + name2 + ' \n'
-  l1 = Label(master=top1, text=str)
-  l1.pack(side=TOP, expand=1)
-  button = Button(top1, text="Close", command=top1.destroy)
-  button.pack(side=TOP)
-  top1.mainloop()
-
-def about():
-  top1 = Tk()
-  top1.wm_title("About tgraph")
-  str =  " tgraph " + tgraph_version + " \n\n"
-  str += "   Produce quick 2D or 3D graphs from files given on the command line. \n"
-  str += "   Read the file tgraph.txt for help. \n\n"
-  str += "   Copyright (C) 2015 Wolfgang Tichy. \n"
-  l1 = Label(master=top1, text=str)
-  l1.pack(side=TOP, expand=1)
-  button = Button(top1, text="Close", command=top1.destroy)
-  button.pack(side=TOP)
-  top1.mainloop()
-
-def help():
-  global tgraph_txt_file
-  top1 = Tk()
-  top1.wm_title("tgraph help")
-  str =  "   tgraph.txt for tgraph " + tgraph_version + ","
-  str += "   Copyright (C) 2015 Wolfgang Tichy.  "
-  l1 = Label(master=top1, text=str)
-  l1.pack(side=TOP, expand=1)
-  scrollbar = Scrollbar(master=top1)
-  scrollbar.pack(side=RIGHT, fill=Y)
-  text = Text(master=top1, wrap=WORD, yscrollcommand=scrollbar.set)
-  tgraph_txt = "file tgraph.txt not found!"
-  with open(tgraph_txt_file, 'r') as f:
-    tgraph_txt = f.read()
-  text.insert("1.0", tgraph_txt)
-  # text.config(state=DISABLED) # no editing in text window
-  text.pack()
-  scrollbar.config(command=text.yview)
-  button = Button(top1, text="Close", command=top1.destroy)
-  button.pack(side=TOP)
-  top1.mainloop()
-
-# simple dialog that opens window where we can enter values for a dictionary
-class WTdialog:
-    # init input form, form is a dict. containing labels and values
-  def __init__(self, title, formdict):
-    self.input = {}     # init input dict.
-    self.Entry = {}     # init tk Entry dict.
-    self.top = Toplevel(root)  # root is parent and can now wait for self.top
-    self.top.wm_title(title)
-    f0 = Frame(master=self.top)
-    f0.pack(side=TOP, expand=1)
-    row = 0
-    for key in sorted(formdict):
-      label = key
-      entry = formdict[key]
-      l1 = Label(master=f0, text=label)
-      l1.grid(row=row, column=0)
-      e1 = Entry(master=f0, width=80)
-      e1.grid(row=row, column=1)
-      e1.delete(0, END)
-      e1.insert(0, entry)
-      # make duplicate of formdict and save tk Entry objects
-      self.input[label] = entry
-      self.Entry[label] = e1
-      row += 1
-    # add "Apply" button
-    button = Button(self.top, text="Apply", command=self.apply_changes)
-    button.pack(side=TOP)
-    # wait for window self.top
-    root.wait_window(self.top)
-
-  def get_input_values(self):
-    for key in self.input:
-      self.input[key] = self.Entry[key].get()
-
-  def apply_changes(self):
-    self.get_input_values()
-    #self.top.quit()
-    self.top.destroy()
-
-# use WTdialog to reset some limits
-def input_graph_limits():
-  global fig
-  global graph_3dOn
-  global ax
-  global graph_limits  # dict. with options
-  global graph_xmin
-  global graph_xmax
-  global graph_ymin
-  global graph_ymax
-  global graph_vmin
-  global graph_vmax
-  # get graph_limits
-  dialog = WTdialog("tgraph Limits", graph_limits)
-  # now get the user input back
-  graph_limits = dialog.input
-  graph_xmin = float(graph_limits['xmin'])
-  graph_xmax = float(graph_limits['xmax'])
-  graph_ymin = float(graph_limits['ymin'])
-  graph_ymax = float(graph_limits['ymax'])
-  graph_vmin = float(graph_limits['vmin'])
-  graph_vmax = float(graph_limits['vmax'])
-  # change axes and then plot again
-  ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-# set graph_limits dict. from graph_xmin, graph_xmax, ...
-def set_graph_limits():
-  global graph_limits  # dict. with options
-  global graph_xmin
-  global graph_xmax
-  global graph_ymin
-  global graph_ymax
-  global graph_vmin
-  global graph_vmax
-  graph_limits['xmin'] = graph_xmin
-  graph_limits['xmax'] = graph_xmax
-  graph_limits['ymin'] = graph_ymin
-  graph_limits['ymax'] = graph_ymax
-  graph_limits['vmin'] = graph_vmin
-  graph_limits['vmax'] = graph_vmax
-
-# use WTdialog to set xcols
-def input_graph_xcolumns():
-  global filelist
-  global graph_xmin
-  global graph_xmax
-  global fig
-  global graph_3dOn
-  global ax
-  xcoldict = {}
-  for i in range(0, len(filelist.file)):
-    xcoldict['#'+str(i)] = filelist.file[i].data.get_xcol0()+1
-  dialog = WTdialog("tgraph x-Column", xcoldict)
-  xcoldict = dialog.input
-  for i in range(0, len(filelist.file)):
-    filelist.file[i].data.set_xcols(int(xcoldict['#'+str(i)])-1)
-  graph_xmin = tdata.inf_to_1e300(filelist.minx())
-  graph_xmax = tdata.inf_to_1e300(filelist.maxx())
-  set_graph_limits()
-  print('(xmin, xmax) =', '(', graph_xmin, ',', graph_xmax, ')')
-  ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-# use WTdialog to set ycols
-def input_graph_ycolumns():
-  global filelist
-  global graph_ymin
-  global graph_ymax
-  global fig
-  global graph_3dOn
-  global ax
-  ycoldict = {}
-  for i in range(0, len(filelist.file)):
-    ycoldict['#'+str(i)] = filelist.file[i].data.get_ycol0()+1
-  dialog = WTdialog("tgraph y-Column", ycoldict)
-  ycoldict = dialog.input
-  for i in range(0, len(filelist.file)):
-    filelist.file[i].data.set_ycols(int(ycoldict['#'+str(i)])-1)
-  graph_ymin = tdata.inf_to_1e300(filelist.miny())
-  graph_ymax = tdata.inf_to_1e300(filelist.maxy())
-  set_graph_limits()
-  print('(ymin, ymax) =', '(', graph_ymin, ',', graph_ymax, ')')
-  ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-# use WTdialog to set vcols
-def input_graph_vcolumns():
-  global filelist
-  global graph_vmin
-  global graph_vmax
-  global fig
-  global graph_3dOn
-  global ax
-  vcoldict = {}
-  for i in range(0, len(filelist.file)):
-    vcoldict['#'+str(i)] = filelist.file[i].data.get_vcol0()+1
-  dialog = WTdialog("tgraph v-Column", vcoldict)
-  vcoldict = dialog.input
-  for i in range(0, len(filelist.file)):
-    filelist.file[i].data.set_vcols(int(vcoldict['#'+str(i)])-1)
-  graph_vmin = tdata.inf_to_1e300(filelist.minv())
-  graph_vmax = tdata.inf_to_1e300(filelist.maxv())
-  set_graph_limits()
-  print('(vmin, vmax) =', '(', graph_vmin, ',', graph_vmax, ')')
-  ax = setup_axes(fig, graph_3dOn, ax)
-  replot()
-
-# use WTdialog to reset some settings
-def input_graph_settings():
-  global fig
-  global graph_3dOn
-  global ax
-  global graph_settings  # dict. with options
-  global graph_colormap
-  global graph_stride
-  # get graph_settings
-  dialog = WTdialog("tgraph Settings", graph_settings)
-  # now get the user input back
-  graph_settings = dialog.input
-  mpl.rcParams['lines.linewidth'] = graph_settings['linewidth']
-  if str(graph_settings['colormap']) != '':
-    exec('global graph_colormap;' +
-         'graph_colormap = cm.' + str(graph_settings['colormap']))
-  graph_stride = int(graph_settings['stride'])
-  # change axes and then plot again
-  replot()
-
-# use WTdialog to reset some labels
-def input_graph_labels():
-  global graph_labelsOn
-  global graph_labels  # dict. with options
-  # get graph_labels
-  dialog = WTdialog("tgraph Labels", graph_labels)
-  # now get the user input back
-  graph_labels = dialog.input
-  mpl.rcParams['font.size'] = graph_labels['fontsize']
-  # since we edited the labels switch them on now
-  graph_labelsOn = 1
-  replot()
-
-# use WTdialog to reset legend
-def input_graph_legend():
-  global filelist
-  global graph_legendOn
-  global graph_legend # dict. with options
-  # for legend
-  # convert graph_legend['loc'] to str, which is undone below
-  graph_legend['loc'] = str(graph_legend['loc'])
-  # now update graph_legend
-  dialog = WTdialog("tgraph Legend", graph_legend)
-  graph_legend = dialog.input
-  # save names
-  for i in range(0, len(filelist.file)):
-    f = filelist.file[i]
-    f.name = graph_legend['#'+str(i)]
-  # Check what loc has. It could be a string, an int, or a coordinate tuple.
-  s = graph_legend['loc']
-  s = s.rstrip()
-  s = s.lstrip()
-  graph_legend['loc'] = s
-  if s.isdigit():
-    graph_legend['loc'] = int(s)
-  else:
-    pos = s.find(',')
-    if pos >= 0:
-      s = s.replace('[', ' ')
-      s = s.replace(']', ' ')
-      s = s.replace('(', ' ')
-      s = s.replace(')', ' ')
-      l = s.split(',')
-      graph_legend['loc'] = [ float(l[0]), float(l[1]) ]
-  # make graph_legend['ncol'] an int
-  graph_legend['ncol'] = int(graph_legend['ncol'])
-  # set some things in mpl.rcParams
-  mpl.rcParams['legend.fancybox']     = graph_legend['fancybox']
-  mpl.rcParams['legend.shadow']       = graph_legend['shadow']
-  mpl.rcParams['legend.frameon']      = graph_legend['frameon']
-  mpl.rcParams['legend.framealpha']   = graph_legend['framealpha']
-  mpl.rcParams['legend.handlelength'] = graph_legend['handlelength']
-  # since we edited the legend switch it on now
-  graph_legendOn = 1
-  replot()
-
-# use WTdialog to reset legend
-def edit_mpl_rcParams():
-  dialog = WTdialog("mpl.rcParams", mpl.rcParams)
-  mpl.rcParams = dialog.input
-  replot()
-
-# use WTdialog to reset line colors
-def input_graph_linecolors():
-  global filelist
-  global graph_linecolors # dict. with options
-  dialog = WTdialog("tgraph Line Colors", graph_linecolors)
-  graph_linecolors = dialog.input
-  replot()
-
-# use WTdialog to reset line colors
-def input_graph_linestyles():
-  global filelist
-  global graph_linestyles # dict. with options
-  dialog = WTdialog("tgraph Line Styles", graph_linestyles)
-  graph_linestyles = dialog.input
-  replot()
-
-# use WTdialog to reset line markers
-def input_graph_linemarkers():
-  global filelist
-  global graph_linemarkers # dict. with options
-  dialog = WTdialog("tgraph Line Markers", graph_linemarkers)
-  graph_linemarkers = dialog.input
-  replot()
-
-# use WTdialog to reset line markers
-def input_graph_linemarkersizes():
-  global filelist
-  global graph_linemarkersizes # dict. with options
-  dialog = WTdialog("tgraph Line Markersizes", graph_linemarkersizes)
-  graph_linemarkersizes = dialog.input
-  replot()
-
-# use WTdialog to reset line widths
-def input_graph_linewidths():
-  global filelist
-  global graph_linewidths # dict. with options
-  dialog = WTdialog("tgraph Line Widths", graph_linewidths)
-  graph_linewidths = dialog.input
-  replot()
-
-# use WTdialog to do transformations on columns
-def input_graph_coltrafos():
-  global filelist
-  global graph_coltrafos # dict. with trafos
-  dialog = WTdialog(
-    "tgraph Column Transformations, "
-    "e.g. c[3] = 2*c[2] + sin(t) +  D(c[2])/D(c[1])",
-    graph_coltrafos)
-  graph_coltrafos = dialog.input
-  # print(graph_coltrafos)
-  for i in range(0, len(filelist.file)):
-    f = filelist.file[i]
-    trafo = str(graph_coltrafos['#'+str(i)])
-    if trafo == '':
-      continue
+    """
+    从当前时间帧开始播放。如果已经在播，则先停止。
+    """
+    global playback_id
+    if playback_id:
+        # 正在播放 -> 停止
+        GLib.source_remove(playback_id)
+        playback_id = None
     else:
-      print("transform", '#'+str(i)+':', trafo)
-      f.data.transform_col(trafo, c_index_shift=1)
-  replot()
+        # 没在播放 -> 启动
+        if graph_timeindex >= len(graph_timelist) - 1:
+            # 若在末帧，则从头开始
+            min_graph_time()
+        playback_id = GLib.timeout_add(int(graph_delay), play_graph_time)
 
-######################################################################
-# except for root window all tk stuff follows below
-######################################################################
-# make menu bar
-menubar = Menu(root)
+# 当用户在 Entry 中敲回车或离开时，设置 graph_time
+def set_graph_time_from_entry(entry):
+    global graph_time, graph_timeindex
+    try:
+        val = float(entry.get_text().strip())
+        # 找到与 val 最接近的时间索引
+        graph_timeindex = tdata.geti_from_t(graph_timelist, val)
+        graph_time = graph_timelist[graph_timeindex]
+        replot()
+    except ValueError:
+        pass
 
-# create a pulldown menu, and add it to the menu bar
-filemenu = Menu(menubar, tearoff=0)
-#filemenu.add_command(label="Open", command=not_implemented)
-filemenu.add_command(label="Open File", command=open_and_plot_file)
-filemenu.add_command(label="Save Movie Frames", command=save_movieframes)
-#filemenu.add_separator()
-filemenu.add_command(label="Exit", command=root.destroy)
-menubar.add_cascade(label="File", menu=filemenu)
+def set_delay_from_entry(entry):
+    global graph_delay
+    try:
+        val = float(entry.get_text().strip())
+        graph_delay = val
+    except ValueError:
+        pass
 
-# create more pulldown menus
-optionsmenu = Menu(menubar, tearoff=0)
-optionsmenu.add_command(label="Toggle Timeframe update/add", command=toggle_clear_on_replot)
-optionsmenu.add_command(label="Toggle Timeframe closest/exact", command=toggle_plot_closest_t)
-optionsmenu.add_command(label="Toggle Axis on/off", command=toggle_axis_on)
-optionsmenu.add_command(label="Toggle log/lin x", command=toggle_log_xscale)
-optionsmenu.add_command(label="Toggle log/lin y", command=toggle_log_yscale)
-optionsmenu.add_command(label="Toggle Grid on/off", command=toggle_plot_grid)
-optionsmenu.add_command(label="Toggle Line/Scatter",
-                        command=toggle_wireframe_scatter)
-optionsmenu.add_command(label="Toggle 2D/3D", command=toggle_2d_3d)
-optionsmenu.add_command(label="Toggle 3D-Surface",
-                        command=toggle_wireframe_surface)
-optionsmenu.add_command(label="Toggle Labels", command=toggle_labels)
-optionsmenu.add_command(label="Toggle Legend", command=toggle_legend)
-#optionsmenu.add_command(label="Show Legend", command=draw_legend)
-menubar.add_cascade(label="Options", menu=optionsmenu)
+# 更新时间 Entry 的显示
+def update_time_entry(entry):
+    global graph_time
+    entry.set_text(f"{graph_time}")
 
-settingsmenu = Menu(menubar, tearoff=0)
-settingsmenu.add_command(label="Select x-Columns", command=input_graph_xcolumns)
-settingsmenu.add_command(label="Select y-Columns", command=input_graph_ycolumns)
-settingsmenu.add_command(label="Select v-Columns", command=input_graph_vcolumns)
-settingsmenu.add_command(label="Edit Limits", command=input_graph_limits)
-settingsmenu.add_command(label="Edit Labels", command=input_graph_labels)
-settingsmenu.add_command(label="Edit Legend", command=input_graph_legend)
-settingsmenu.add_command(label="Graph Settings", command=input_graph_settings)
-#settingsmenu.add_command(label="Edit rcParams", command=edit_mpl_rcParams)
-menubar.add_cascade(label="Settings", menu=settingsmenu)
+# -----------------------------------------------------------------------------------
+#   一些工具函数（原 tgraph 中的 replot, toggle 等）
+# -----------------------------------------------------------------------------------
+def setup_axes(fig, is3d, old_ax=None):
+    """
+    在 fig 上重新创建 Axes（2D 或 3D）。删除旧轴。
+    """
+    if old_ax is not None:
+        fig.delaxes(old_ax)
+    if not is3d:
+        return fig.add_subplot(111)
+    else:
+        from mpl_toolkits.mplot3d import Axes3D
+        return fig.add_subplot(111, projection='3d')
 
-linesmenu = Menu(menubar, tearoff=0)
-linesmenu.add_command(label="Edit Line Colors",  command=input_graph_linecolors)
-linesmenu.add_command(label="Edit Line Styles",  command=input_graph_linestyles)
-linesmenu.add_command(label="Edit Line Markers", command=input_graph_linemarkers)
-linesmenu.add_command(label="Edit Line Markersizes", command=input_graph_linemarkersizes)
-linesmenu.add_command(label="Edit Line Widths",  command=input_graph_linewidths)
-menubar.add_cascade(label="Lines", menu=linesmenu)
+# 全局引用，方便菜单回调
+global_fig = None
+global_ax = None
+global_canvas = None
 
+def replot():
+    global global_fig, global_ax, global_canvas
+    global graph_time, graph_3dOn
 
-transformationsmenu = Menu(menubar, tearoff=0)
-transformationsmenu.add_command(label="Transform Columns",
-                                command=input_graph_coltrafos)
-menubar.add_cascade(label="Transformations", menu=transformationsmenu)
+    if graph_3dOn == 0:
+        axplot2d_at_time(filelist, global_ax, graph_time)
+    else:
+        axplot3d_at_time(filelist, global_ax, graph_time)
 
+    global_canvas.draw()
 
-# create help pulldown menu
-helpmenu = Menu(menubar, tearoff=0)
-helpmenu.add_command(label="About", command=about)
-helpmenu.add_command(label="Read help in tgraph.txt", command=help)
-menubar.add_cascade(label="Help", menu=helpmenu)
+# 菜单回调：toggles
+def toggle_timeframe_update(_menuitem):
+    global graph_clear_on_replot
+    graph_clear_on_replot = 0 if graph_clear_on_replot else 1
+    replot()
 
-# display the menu
-root.config(menu=menubar)
+def toggle_timeframe_closest(_menuitem):
+    global graph_plot_closest_t
+    graph_plot_closest_t = 0 if graph_plot_closest_t else 1
+    replot()
 
+def toggle_axis_on(_menuitem):
+    global graph_axis_on
+    graph_axis_on = 0 if graph_axis_on else 1
+    replot()
 
-# make a frame where we put time step controls
-topframe = Frame(root)
-topframe.pack(side=TOP, expand=0)
+def toggle_log_xscale(_menuitem):
+    global global_ax
+    if global_ax.get_xscale() == 'linear':
+        global_ax.set_xscale('log')
+    else:
+        global_ax.set_xscale('linear')
+    replot()
 
-# entries for time 
-tl = Label(master=topframe, text="Time")
-tl.pack(side=LEFT, expand=0)
-tentry = Entry(master=topframe, width=22)
-tentry.bind('<Return>', lambda event, ent=tentry: set_graph_time(event, ent))
-tentry.bind('<Deactivate>', lambda event, ent=tentry: set_graph_time(event, ent))
-tentry.pack(side=LEFT, expand=1)
-tentry.delete(0, END)
-tentry.insert(0, graph_time)
+def toggle_log_yscale(_menuitem):
+    global global_ax
+    if global_ax.get_yscale() == 'linear':
+        global_ax.set_yscale('log')
+    else:
+        global_ax.set_yscale('linear')
+    replot()
 
-# add buttons for player
-sb = Button(master=topframe, text='<<', width=3, command=min_graph_time)
-sb.pack(side=LEFT, expand=1)
-bb = Button(master=topframe, text='<', width=3, command=dec_graph_time)
-bb.pack(side=LEFT, expand=1)
-pb = Button(master=topframe, text='Play', width=5, command=start_play_graph_time)
-pb.pack(side=LEFT, expand=1)
-fb = Button(master=topframe, text='>', width=3, command=inc_graph_time)
-fb.pack(side=LEFT, expand=1)
-eb = Button(master=topframe, text='>>', width=3, command=max_graph_time)
-eb.pack(side=LEFT, expand=1)
+def toggle_grid(_menuitem):
+    global graph_plot_grid
+    graph_plot_grid = 0 if graph_plot_grid else 1
+    replot()
 
-# entries for delay
-dl = Label(master=topframe, text="  Delay")
-dl.pack(side=LEFT, expand=1)
-de = Entry(master=topframe, width=4)
-de.bind('<Return>', lambda event, ent=de: set_graph_delay(event, ent))
-de.bind('<Leave>', lambda event, ent=de: set_graph_delay(event, ent))
-de.pack(side=LEFT, expand=1)
-de.delete(0, END)
-de.insert(0, "1")
+def toggle_line_scatter(_menuitem):
+    global graph_plot_surface, graph_plot_scatter
+    if graph_plot_surface:
+        # 若原先是 surface，先关掉
+        graph_plot_surface = 0
+    graph_plot_scatter = 0 if graph_plot_scatter else 1
+    replot()
 
-######################################################################
-# make figure fig
-fig = Figure(figsize=(7.25, 7), dpi=85)
+def toggle_2d_3d(_menuitem):
+    global graph_3dOn, global_ax, global_fig
+    graph_3dOn = 0 if graph_3dOn else 1
+    global_ax = setup_axes(global_fig, graph_3dOn, global_ax)
+    replot()
 
-# Use matplotlib to make a tk.DrawingArea of fig and show it.
-# This need needs to come before making ax by: ax = Axes3D(fig)
-canvas = FigureCanvasTkAgg(fig, master=root)
-canvas.draw()
-canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
+def toggle_surface(_menuitem):
+    global graph_plot_surface, graph_plot_scatter
+    if graph_plot_surface == 1:
+        graph_plot_surface = 0
+    else:
+        graph_plot_surface = 1
+        graph_plot_scatter = 0
+    replot()
 
-# setup the axes
-ax = setup_axes(fig, graph_3dOn, None)
+def toggle_labels(_menuitem):
+    global graph_labelsOn
+    graph_labelsOn = 0 if graph_labelsOn else 1
+    # 若 labels 关闭，可把 label 全清空；也可以仅不显示
+    # 这里简化仅视作“显示/隐藏”
+    replot()
 
-# make matplotlib toolbar
-toolbar = NavToolbar(canvas, root)
-toolbar.update()
-#canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=1)
-canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
+def toggle_legend(_menuitem):
+    global graph_legendOn
+    graph_legendOn = 0 if graph_legendOn else 1
+    replot()
 
-replot()
+# -----------------------------------------------------------------------------------
+#   “对话框” 用于编辑若干 key->value 的界面
+# -----------------------------------------------------------------------------------
+class GTKDialogKeyValue(Gtk.Dialog):
+    """
+    类似原先 WTdialog，用来修改一个 dict 中的字符串 / 数值。
+    """
+    def __init__(self, title, keyvalues: dict, parent=None):
+        super().__init__(title=title, transient_for=parent, modal=True)
+        self.set_default_size(400, 300)
 
-######################################################################
-#print('times =', graph_timelist)
-print('(tmin, tmax) =', '(', filelist.mintime(), ',', filelist.maxtime(), ')')
-print('(xmin, xmax) =', '(', graph_xmin, ',', graph_xmax, ')')
-print('(ymin, ymax) =', '(', graph_ymin, ',', graph_ymax, ')')
-print('(vmin, vmax) =', '(', graph_vmin, ',', graph_vmax, ')')
+        self.keyvalues = keyvalues
+        self.entries = {}
 
+        vbox = self.get_content_area()
+        grid = Gtk.Grid(column_spacing=8, row_spacing=6, margin=10)
+        vbox.add(grid)
 
-######################################################################
-# go into tkinter's main loop and wait for events
-root.mainloop()
+        row = 0
+        # 为 dict 中每个键创建一行 (Label + Entry)
+        for key in sorted(keyvalues.keys()):
+            label = Gtk.Label(label=key, xalign=1.0)
+            entry = Gtk.Entry()
+            entry.set_text(str(keyvalues[key]))
+            self.entries[key] = entry
+            grid.attach(label, 0, row, 1, 1)
+            grid.attach(entry, 1, row, 1, 1)
+            row += 1
+
+        # 底部按钮
+        self.ok_button = Gtk.Button(label="Apply")
+        self.ok_button.connect("clicked", self.on_apply)
+        grid.attach(self.ok_button, 0, row, 2, 1)
+
+        self.show_all()
+
+    def on_apply(self, button):
+        # 从对话框的 entries 中获取值
+        for k, e in self.entries.items():
+            text = e.get_text().strip()
+            self.keyvalues[k] = text
+        self.destroy()
+
+# -----------------------------------------------------------------------------------
+#   菜单回调：各种输入对话框 -> 改变全局设置 -> replot
+# -----------------------------------------------------------------------------------
+def input_graph_limits(_menuitem):
+    global graph_limits
+    dlg = GTKDialogKeyValue("Edit Limits", graph_limits)
+    dlg.run()  # 阻塞等待
+    dlg.destroy()
+
+    # 将编辑结果写回全局
+    # 转换为 float
+    graph_limits['xmin'] = float(graph_limits['xmin'])
+    graph_limits['xmax'] = float(graph_limits['xmax'])
+    graph_limits['ymin'] = float(graph_limits['ymin'])
+    graph_limits['ymax'] = float(graph_limits['ymax'])
+    graph_limits['vmin'] = float(graph_limits['vmin'])
+    graph_limits['vmax'] = float(graph_limits['vmax'])
+
+    replot()
+
+def input_graph_labels(_menuitem):
+    global graph_labels, graph_labelsOn
+    dlg = GTKDialogKeyValue("Edit Labels", graph_labels)
+    dlg.run()
+    dlg.destroy()
+
+    # 转换一些值
+    matplotlib.rcParams['font.size'] = float(graph_labels['fontsize'])
+    # 打开显示
+    graph_labelsOn = 1
+    replot()
+
+def input_graph_legend(_menuitem):
+    global graph_legend, graph_legendOn, filelist
+    dlg = GTKDialogKeyValue("Edit Legend", graph_legend)
+    dlg.run()
+    dlg.destroy()
+
+    # 处理 #0, #1, #2... 对应 file 名
+    for i in range(len(filelist.file)):
+        k = f"#{i}"
+        if k in graph_legend:
+            filelist.file[i].name = graph_legend[k]
+    # 解析 loc
+    s = str(graph_legend['loc']).strip()
+    if s.isdigit():
+        graph_legend['loc'] = int(s)
+    else:
+        # 尝试解析成 "x, y"
+        if "," in s:
+            parts = s.replace("(", "").replace(")", "").split(",")
+            graph_legend['loc'] = (float(parts[0]), float(parts[1]))
+    graph_legend['ncol'] = int(graph_legend['ncol'])
+
+    # 打开显示
+    graph_legendOn = 1
+    replot()
+
+def input_graph_settings(_menuitem):
+    global graph_settings, graph_stride, graph_colormap, graph_colormap_str
+    dlg = GTKDialogKeyValue("Graph Settings", graph_settings)
+    dlg.run()
+    dlg.destroy()
+
+    # 应用更改
+    matplotlib.rcParams['lines.linewidth'] = float(graph_settings['linewidth'])
+    graph_stride = int(graph_settings['stride'])
+    cmap_name = graph_settings['colormap']
+    graph_colormap_str = cmap_name
+    if cmap_name:
+        try:
+            graph_colormap = getattr(cm, cmap_name)
+        except:
+            pass
+
+    replot()
+
+def input_graph_xcolumns(_menuitem):
+    """
+    用来修改每个 file 的 xcol
+    """
+    # 准备一个 dict
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = str(filelist.file[i].data.get_xcol0() + 1)
+    dlg = GTKDialogKeyValue("Select x-Columns", d)
+    dlg.run()
+    dlg.destroy()
+    # 应用
+    for i in range(len(filelist.file)):
+        newcol = int(d[f"#{i}"]) - 1
+        filelist.file[i].data.set_xcols(newcol)
+
+    # 重新计算 x min max
+    global graph_xmin, graph_xmax
+    graph_xmin = tdata.inf_to_1e300(filelist.minx())
+    graph_xmax = tdata.inf_to_1e300(filelist.maxx())
+    graph_limits['xmin'] = graph_xmin
+    graph_limits['xmax'] = graph_xmax
+    replot()
+
+def input_graph_ycolumns(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = str(filelist.file[i].data.get_ycol0() + 1)
+    dlg = GTKDialogKeyValue("Select y-Columns", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        newcol = int(d[f"#{i}"]) - 1
+        filelist.file[i].data.set_ycols(newcol)
+
+    global graph_ymin, graph_ymax
+    graph_ymin = tdata.inf_to_1e300(filelist.miny())
+    graph_ymax = tdata.inf_to_1e300(filelist.maxy())
+    graph_limits['ymin'] = graph_ymin
+    graph_limits['ymax'] = graph_ymax
+    replot()
+
+def input_graph_vcolumns(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = str(filelist.file[i].data.get_vcol0() + 1)
+    dlg = GTKDialogKeyValue("Select v-Columns", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        newcol = int(d[f"#{i}"]) - 1
+        filelist.file[i].data.set_vcols(newcol)
+
+    global graph_vmin, graph_vmax
+    graph_vmin = tdata.inf_to_1e300(filelist.minv())
+    graph_vmax = tdata.inf_to_1e300(filelist.maxv())
+    graph_limits['vmin'] = graph_vmin
+    graph_limits['vmax'] = graph_vmax
+    replot()
+
+def input_graph_linecolors(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = graph_linecolors[f"#{i}"]
+    dlg = GTKDialogKeyValue("Edit Line Colors", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        graph_linecolors[f"#{i}"] = d[f"#{i}"]
+    replot()
+
+def input_graph_linestyles(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = graph_linestyles[f"#{i}"]
+    dlg = GTKDialogKeyValue("Edit Line Styles", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        graph_linestyles[f"#{i}"] = d[f"#{i}"]
+    replot()
+
+def input_graph_linemarkers(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = graph_linemarkers[f"#{i}"]
+    dlg = GTKDialogKeyValue("Edit Line Markers", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        graph_linemarkers[f"#{i}"] = d[f"#{i}"]
+    replot()
+
+def input_graph_linemarkersizes(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = str(graph_linemarkersizes[f"#{i}"])
+    dlg = GTKDialogKeyValue("Edit Line Markersizes", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        graph_linemarkersizes[f"#{i}"] = float(d[f"#{i}"])
+    replot()
+
+def input_graph_linewidths(_menuitem):
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = str(graph_linewidths[f"#{i}"])
+    dlg = GTKDialogKeyValue("Edit Line Widths", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        val = d[f"#{i}"].strip()
+        graph_linewidths[f"#{i}"] = val
+    replot()
+
+def input_graph_coltrafos(_menuitem):
+    """
+    与原脚本类似，可对列进行表达式变换。此处示例仅保留 UI，不详细演示 transform_col。
+    """
+    d = {}
+    for i in range(len(filelist.file)):
+        d[f"#{i}"] = graph_coltrafos[f"#{i}"]
+    dlg = GTKDialogKeyValue("Transform Columns", d)
+    dlg.run()
+    dlg.destroy()
+    for i in range(len(filelist.file)):
+        expr = d[f"#{i}"].strip()
+        graph_coltrafos[f"#{i}"] = expr
+        if expr != "":
+            print(f"Transform file #{i}: {expr}")
+            filelist.file[i].data.transform_col(expr, c_index_shift=1)
+    replot()
+
+def about_dialog(_menuitem):
+    md = Gtk.MessageDialog(
+        text=f"tgraph {tgraph_version}\n\n"
+                       "Copyright (C) 2015 Wolfgang Tichy.\n"
+                       "Ported to GTK by Yingjie Wang.\n",
+        buttons=Gtk.ButtonsType.OK
+    )
+    md.run()
+    md.destroy()
+
+def help_dialog(_menuitem):
+    # 简单读一下 tgraph.txt
+    tgraph_txt_file = os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt")
+    helptext = "tgraph.txt not found!"
+    if os.path.exists(tgraph_txt_file):
+        with open(tgraph_txt_file, "r") as f:
+            helptext = f.read()
+
+    # 用 TextView 显示
+    dialog = Gtk.Dialog(title="tgraph help", modal=True)
+    dialog.set_default_size(600, 400)
+    box = dialog.get_content_area()
+    scrolled_win = Gtk.ScrolledWindow()
+    scrolled_win.set_hexpand(True)
+    scrolled_win.set_vexpand(True)
+    textview = Gtk.TextView()
+    textview.set_editable(False)
+    textbuffer = textview.get_buffer()
+    textbuffer.set_text(helptext)
+    scrolled_win.add(textview)
+    box.pack_start(scrolled_win, True, True, 0)
+
+    button_ok = Gtk.Button(label="Close")
+    button_ok.connect("clicked", lambda w: dialog.destroy())
+    box.pack_end(button_ok, False, False, 5)
+
+    dialog.show_all()
+    dialog.run()
+    dialog.destroy()
+
+# -----------------------------
+# 新增：Open File 对话框函数
+# -----------------------------
+def open_file_dialog(_menuitem):
+    """
+    允许用户通过 FileChooserDialog 选择多个新文件，并添加到 filelist。
+    """
+    dialog = Gtk.FileChooserDialog(
+        title="Open File(s)",
+        parent=None,
+        action=Gtk.FileChooserAction.OPEN
+    )
+    dialog.add_buttons(
+        Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+        Gtk.STOCK_OPEN,   Gtk.ResponseType.OK
+    )
+    dialog.set_select_multiple(True)  # 允许多选
+
+    # 可以根据需要设置过滤器
+    # file_filter = Gtk.FileFilter()
+    # file_filter.set_name("All files")
+    # file_filter.add_pattern("*")
+    # dialog.add_filter(file_filter)
+
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        # 获取所有选定文件
+        filenames = dialog.get_filenames()
+        print("User selected:", filenames)
+
+        # 对每个文件，交给 filelist 处理
+        from math import isinf
+        for fname in filenames:
+            if not os.path.isfile(fname):
+                continue
+            # 假设使用默认 timelabel_str
+            timelabel_str = "time"
+            filelist.add(fname, timelabel_str)
+            print("Added:", filelist.file[-1].filename)
+            # 设置默认列
+            # xcol, ycol, zcol, vcol 等可从全局拿
+            filelist.file[-1].data.set_cols(xcol=0, ycol=1, zcol=2, vcol=1)
+
+        # 更新 graph_timelist, graph_time 等
+        global graph_timelist, graph_time, graph_timeindex
+        graph_timelist = filelist.get_timelist()
+        # 若只有初始空的话，现在可以拿到新的 time 范围
+        # graph_time = filelist.mintime()
+        # graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
+
+        # 更新 x/y/v 范围
+        global graph_xmin, graph_xmax, graph_ymin, graph_ymax, graph_vmin, graph_vmax
+        from tdata import inf_to_1e300
+        graph_xmin = inf_to_1e300(filelist.minx())
+        graph_xmax = inf_to_1e300(filelist.maxx())
+        graph_ymin = inf_to_1e300(filelist.miny())
+        graph_ymax = inf_to_1e300(filelist.maxy())
+        graph_vmin = inf_to_1e300(filelist.minv())
+        graph_vmax = inf_to_1e300(filelist.maxv())
+
+        # 同步到 graph_limits 字典
+        graph_limits['xmin'] = graph_xmin
+        graph_limits['xmax'] = graph_xmax
+        graph_limits['ymin'] = graph_ymin
+        graph_limits['ymax'] = graph_ymax
+        graph_limits['vmin'] = graph_vmin
+        graph_limits['vmax'] = graph_vmax
+
+        # 给新文件分配线条颜色/名字
+        for i in range(len(filelist.file)):
+            # 如果之前没初始化过，就 set_graph_globals_for_file_i
+            # 可以简单点，对最后几个新的 file 做 set_graph_globals_for_file_i
+            pass
+
+        # 重绘
+        replot()
+
+    dialog.destroy()
+
+# -----------------------------
+# 新增：保存序列帧函数
+# -----------------------------
+def save_movieframes_dialog(_menuitem):
+    """
+    弹出一个 “Save As” 对话框，指定输出文件名。例如 “frame.png”。
+    然后把所有时间帧以 "basename_{index}.ext" 的形式保存下来。
+    """
+    dialog = Gtk.FileChooserDialog(
+        title="Save Movie Frames",
+        action=Gtk.FileChooserAction.SAVE
+    )
+    dialog.add_buttons(
+        Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+        Gtk.STOCK_SAVE,   Gtk.ResponseType.OK
+    )
+    dialog.set_do_overwrite_confirmation(True)
+
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        outname = dialog.get_filename()
+        # outname 可能是 /home/user/frame.png
+        print("Saving frames to base name:", outname)
+
+        # 处理扩展名, 基础名
+        base, ext = os.path.splitext(outname)
+        if not ext:
+            # 若用户没写扩展名，给个默认
+            ext = ".png"
+
+        # 全部时间帧
+        global graph_timeindex, graph_time, graph_timelist
+        i1 = 0
+        i2 = len(graph_timelist)
+        # 打印需要的零填充位数
+        digits = len(str(i2-1))
+        fmt_str = f"%0{digits}d"
+
+        # 存储当前 index
+        old_index = graph_timeindex
+        old_time = graph_time
+
+        # 循环保存
+        for idx in range(i2):
+            graph_timeindex = idx
+            graph_time = graph_timelist[idx]
+            replot()  # 让画面更新到对应时间
+
+            # 构造文件名
+            frame_idx = fmt_str % idx
+            filename = f"{base}_{frame_idx}{ext}"
+            global_canvas.print_figure(filename)
+            if idx == 0:
+                first_file = filename
+            if idx == i2-1:
+                last_file = filename
+
+        # 恢复之前的时间
+        graph_timeindex = old_index
+        graph_time = old_time
+        replot()
+
+        # 给用户提示
+        info_dialog = Gtk.MessageDialog(
+            parent=None,
+            flags=0,
+            message_format=f"Frames saved:\n  {first_file} ... {last_file}",
+            buttons=Gtk.ButtonsType.OK
+        )
+        info_dialog.run()
+        info_dialog.destroy()
+
+    dialog.destroy()
+
+# -----------------------------------------------------------------------------------
+#   GTK 主窗口
+# -----------------------------------------------------------------------------------
+class GTKGraphWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="GTK tgraph")
+        self.set_default_size(900, 700)
+
+        # 创建一个垂直布局
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(vbox)
+
+        # 1) 菜单栏
+        menubar = self.build_menubar()
+        vbox.pack_start(menubar, False, False, 0)
+
+        # 2) 最上方增加一行“时间播放控件”
+        time_controls_box = self.build_time_controls()
+        vbox.pack_start(time_controls_box, False, False, 4)
+
+        # 3) matplotlib Figure + Canvas
+        global global_fig, global_ax, global_canvas
+        global_fig = Figure(figsize=(6,5), dpi=100)
+        # global_ax = setup_axes(global_fig, graph_3dOn, None)
+        global_ax = global_fig.add_subplot(111)
+        global_canvas = FigureCanvas(global_fig)
+        global_canvas.set_hexpand(True)
+        global_canvas.set_vexpand(True)
+
+        vbox.pack_start(global_canvas, True, True, 0)
+
+        toolbar = NavigationToolbar(global_canvas)
+        vbox.pack_start(toolbar, False, False, 0)
+
+        # 初次绘制
+        replot()
+        self.show_all()
+
+    def build_menubar(self):
+        menubar = Gtk.MenuBar()
+
+        # File
+        file_menu = Gtk.Menu()
+        file_item = Gtk.MenuItem(label="File")
+        file_item.set_submenu(file_menu)
+        menubar.append(file_item)
+
+        mi_open = Gtk.MenuItem(label="Open File")
+        mi_open.connect("activate", open_file_dialog)
+        file_menu.append(mi_open)
+
+        mi_save = Gtk.MenuItem(label="Save Movie Frames")
+        mi_save.connect("activate", save_movieframes_dialog)
+        file_menu.append(mi_save)
+
+        mi_exit = Gtk.MenuItem(label="Exit")
+        mi_exit.connect("activate", lambda w: self.destroy())
+        file_menu.append(mi_exit)
+
+        # Options
+        options_menu = Gtk.Menu()
+        options_item = Gtk.MenuItem(label="Options")
+        options_item.set_submenu(options_menu)
+        menubar.append(options_item)
+
+        add_opt = lambda lbl, cb: (
+            lambda i: (i.connect("activate", cb), options_menu.append(i))
+        )(Gtk.MenuItem(label=lbl))
+
+        add_opt("Toggle Timeframe update/add", toggle_timeframe_update)
+        add_opt("Toggle Timeframe closest/exact", toggle_timeframe_closest)
+        add_opt("Toggle Axis on/off", toggle_axis_on)
+        add_opt("Toggle log/lin x", toggle_log_xscale)
+        add_opt("Toggle log/lin y", toggle_log_yscale)
+        add_opt("Toggle Grid on/off", toggle_grid)
+        add_opt("Toggle Line/Scatter", toggle_line_scatter)
+        add_opt("Toggle 2D/3D", toggle_2d_3d)
+        add_opt("Toggle 3D-Surface", toggle_surface)
+        add_opt("Toggle Labels", toggle_labels)
+        add_opt("Toggle Legend", toggle_legend)
+
+        # Settings
+        settings_menu = Gtk.Menu()
+        settings_item = Gtk.MenuItem(label="Settings")
+        settings_item.set_submenu(settings_menu)
+        menubar.append(settings_item)
+
+        def add_set(lbl, cb):
+            mi = Gtk.MenuItem(label=lbl)
+            mi.connect("activate", cb)
+            settings_menu.append(mi)
+
+        add_set("Select x-Columns", input_graph_xcolumns)
+        add_set("Select y-Columns", input_graph_ycolumns)
+        add_set("Select v-Columns", input_graph_vcolumns)
+        add_set("Edit Limits", input_graph_limits)
+        add_set("Edit Labels", input_graph_labels)
+        add_set("Edit Legend", input_graph_legend)
+        add_set("Graph Settings", input_graph_settings)
+
+        # Lines
+        lines_menu = Gtk.Menu()
+        lines_item = Gtk.MenuItem(label="Lines")
+        lines_item.set_submenu(lines_menu)
+        menubar.append(lines_item)
+
+        def add_line_set(lbl, cb):
+            mi = Gtk.MenuItem(label=lbl)
+            mi.connect("activate", cb)
+            lines_menu.append(mi)
+
+        add_line_set("Edit Line Colors", input_graph_linecolors)
+        add_line_set("Edit Line Styles", input_graph_linestyles)
+        add_line_set("Edit Line Markers", input_graph_linemarkers)
+        add_line_set("Edit Line Markersizes", input_graph_linemarkersizes)
+        add_line_set("Edit Line Widths", input_graph_linewidths)
+
+        # Transformations
+        transform_menu = Gtk.Menu()
+        transform_item = Gtk.MenuItem(label="Transformations")
+        transform_item.set_submenu(transform_menu)
+        menubar.append(transform_item)
+
+        mi_transform = Gtk.MenuItem(label="Transform Columns")
+        mi_transform.connect("activate", input_graph_coltrafos)
+        transform_menu.append(mi_transform)
+
+        # Help
+        help_menu = Gtk.Menu()
+        help_item = Gtk.MenuItem(label="Help")
+        help_item.set_submenu(help_menu)
+        menubar.append(help_item)
+
+        mi_about = Gtk.MenuItem(label="About")
+        mi_about.connect("activate", about_dialog)
+        help_menu.append(mi_about)
+
+        mi_help = Gtk.MenuItem(label="Read help in tgraph.txt")
+        mi_help.connect("activate", help_dialog)
+        help_menu.append(mi_help)
+
+        return menubar
+
+    def build_time_controls(self):
+            """
+            构造一行：Time [Entry] << < Play > >> Delay [Entry]
+            """
+            global graph_delay
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+            # “Time” Label
+            lbl_time = Gtk.Label(label="Time:")
+            hbox.pack_start(lbl_time, False, False, 0)
+
+            # 时间 Entry
+            self.time_entry = Gtk.Entry()
+            self.time_entry.set_width_chars(8)
+            # 初始显示
+            self.time_entry.set_text(f"{graph_time}")
+            # 当用户敲回车或失焦时，解析并设置 time
+            self.time_entry.connect("activate", lambda w: set_graph_time_from_entry(w))
+            self.time_entry.connect("focus-out-event", lambda w, e: (set_graph_time_from_entry(w), False))
+            hbox.pack_start(self.time_entry, False, False, 0)
+
+            # 按钮: <<, <
+            btn_min = Gtk.Button(label="<<")
+            btn_min.connect("clicked", lambda w: (min_graph_time(), update_time_entry(self.time_entry)))
+            hbox.pack_start(btn_min, False, False, 0)
+
+            btn_dec = Gtk.Button(label="<")
+            btn_dec.connect("clicked", lambda w: (dec_graph_time(), update_time_entry(self.time_entry)))
+            hbox.pack_start(btn_dec, False, False, 0)
+
+            # Play
+            btn_play = Gtk.Button(label="Play")
+            btn_play.connect("clicked", lambda w: start_play_graph_time())
+            hbox.pack_start(btn_play, False, False, 0)
+
+            # 按钮: >
+            btn_inc = Gtk.Button(label=">")
+            btn_inc.connect("clicked", lambda w: (inc_graph_time(), update_time_entry(self.time_entry)))
+            hbox.pack_start(btn_inc, False, False, 0)
+
+            # 按钮: >>
+            btn_max = Gtk.Button(label=">>")
+            btn_max.connect("clicked", lambda w: (max_graph_time(), update_time_entry(self.time_entry)))
+            hbox.pack_start(btn_max, False, False, 0)
+
+            # 间隔
+            lbl_delay = Gtk.Label(label="  Delay:")
+            hbox.pack_start(lbl_delay, False, False, 0)
+
+            self.delay_entry = Gtk.Entry()
+            self.delay_entry.set_width_chars(4)
+            self.delay_entry.set_text(str(graph_delay))
+            self.delay_entry.connect("activate", lambda w: set_delay_from_entry(w))
+            self.delay_entry.connect("focus-out-event", lambda w, e: (set_delay_from_entry(w), False))
+            hbox.pack_start(self.delay_entry, False, False, 0)
+
+            return hbox
+
+# -----------------------------------------------------------------------------------
+#   主入口
+# -----------------------------------------------------------------------------------
+def main():
+    win = GTKGraphWindow()
+    win.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+
+if __name__ == "__main__":
+    main()
