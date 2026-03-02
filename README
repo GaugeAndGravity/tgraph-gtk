@@ -8,7 +8,10 @@ This is a GTK port of ![tgraph](https://github.com/wofti/tgraph). The original s
 
 Installation:
 -------------
-For installation see the file INSTALL.
+A simple ``make install`` target is provided; see the accompanying
+`INSTALL` file for details about prefixes and where the script will be
+copied.  You can also run directly from the source tree (``python3
+src/tgraph.py``) if you prefer.
 
 
 Help:

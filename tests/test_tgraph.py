@@ -4,11 +4,12 @@ import importlib
 import matplotlib
 matplotlib.use("Agg")  # headless backend for tests
 
-# ensure the top-level project directory is on the Python path so we can
+# ensure the project's source directory is on the Python path so we can
 # import the `tgraph` module (pytest may change cwd to tests/ during collection)
 _here = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-if _here not in sys.path:
-    sys.path.insert(0, _here)
+srcdir = os.path.join(_here, 'src')
+if srcdir not in sys.path:
+    sys.path.insert(0, srcdir)
 
 import pytest
 

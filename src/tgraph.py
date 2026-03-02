@@ -34,8 +34,15 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 
 # -----------------------
-#  3) 导入 tdata.py
+#  3) 导入 tdata.py (ensure script directory is on import path)
 # -----------------------
+# when installed the script may live in a bindir; we want to load the
+# sibling tdata.py that will be placed next to the script.  ``realpath``
+# resolves symlinks in case the user installed via a symlink.
+_script_dir = os.path.dirname(os.path.realpath(__file__))
+if _script_dir not in sys.path:
+    sys.path.insert(0, _script_dir)
+
 import tdata
 
 # -----------------------------------------------------------------------------------
@@ -107,101 +114,122 @@ def parse_cmdline(argv=None):
     return parser.parse_args(argv)
 
 
-# call parser and apply options
-args = parse_cmdline()
+# ---------------------------------------------------------------------------
+#  glue logic that used to execute on import; factor it into a callable
+# ---------------------------------------------------------------------------
+def initialize(argv=None):
+    """Perform command‑line parsing and build global state.
 
-filelist = tdata.tFileList()
-print("Trying to open files:")
+    This function used to run at import time; tests rely on importing the
+    module after adjusting ``sys.argv``.  ``argv`` may also be passed
+    explicitly for convenience.
+    """
+    global args, filelist, xcol, ycol, zcol, vcol
+    global graph_stride, timelabel_str
+    global got_xrange, got_yrange, got_vrange
+    global graph_xmin, graph_xmax, graph_ymin, graph_ymax
+    global graph_vmin, graph_vmax
+    global graph_time, graph_timelist, graph_timeindex
 
-# apply simple options
-if args.cols is not None:
-    xcol, ycol_tmp, vcol_tmp = args.cols
-    if ycol_tmp is not None:
-        ycol = ycol_tmp
-    vcol = vcol_tmp
+    args = parse_cmdline(argv)
 
-if args.marker:
-    matplotlib.rcParams['lines.marker'] = 'o'
+    filelist = tdata.tFileList()
+    print("Trying to open files:")
 
-graph_stride = args.stride
+    # apply simple options
+    if args.cols is not None:
+        xcol, ycol_tmp, vcol_tmp = args.cols
+        if ycol_tmp is not None:
+            ycol = ycol_tmp
+        vcol = vcol_tmp
 
-timelabel_str = args.time_label.lower()
+    if args.marker:
+        matplotlib.rcParams['lines.marker'] = 'o'
 
-# report the columns that will be used (defaults if not overridden)
-print("cols:", xcol+1, ycol+1, ":", vcol+1)
+    graph_stride = args.stride
 
-got_xrange = got_yrange = got_vrange = 0
-if args.xrange is not None:
-    graph_xmin, graph_xmax = args.xrange
-    got_xrange = 1
-if args.yrange is not None:
-    graph_ymin, graph_ymax = args.yrange
-    got_yrange = 1
-if args.vrange is not None:
-    graph_vmin, graph_vmax = args.vrange
-    got_vrange = 1
+    timelabel_str = args.time_label.lower()
 
-# bracket handling state
-openCBrack = inCBrack = openSBrack = inSBrack = endSBrack = 0
+    # report the columns that will be used (defaults if not overridden)
+    print("cols:", xcol+1, ycol+1, ":", vcol+1)
 
-for token in args.files:
-    if token == "{":
-        openCBrack = 1
-        inCBrack = 0
-        continue
-    elif token == "}":
-        openCBrack = 0
-        inCBrack = 0
-        continue
-    elif token == "[":
-        openSBrack = 1
-        inSBrack = 0
-        endSBrack = 0
-        continue
-    elif token == "]":
-        openSBrack = 0
-        inSBrack = 0
-        endSBrack = 1
-        continue
+    got_xrange = got_yrange = got_vrange = 0
+    if args.xrange is not None:
+        graph_xmin, graph_xmax = args.xrange
+        got_xrange = 1
+    if args.yrange is not None:
+        graph_ymin, graph_ymax = args.yrange
+        got_yrange = 1
+    if args.vrange is not None:
+        graph_vmin, graph_vmax = args.vrange
+        got_vrange = 1
 
-    # treat as filename
-    filelist.add(token, timelabel_str)
-    print(filelist.file[-1].filename)
-    filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
-    if inSBrack:
-        filelist.append_file_i2_to_i1(-2, -1)
-    if openSBrack:
-        inSBrack = 1
-        openSBrack = 0
-    if inCBrack:
-        filelist.merge_file_i2_into_i1(-2, -1)
-    if openCBrack:
-        inCBrack = 1
-        openCBrack = 0
+    # bracket handling state
+    openCBrack = inCBrack = openSBrack = inSBrack = endSBrack = 0
 
-# no files error
-if len(filelist.file) == 0:
-    print("No files given on command line.\nUse -h for help.")
-    sys.exit(1)
+    for token in args.files:
+        if token == "{":
+            openCBrack = 1
+            inCBrack = 0
+            continue
+        elif token == "}":
+            openCBrack = 0
+            inCBrack = 0
+            continue
+        elif token == "[":
+            openSBrack = 1
+            inSBrack = 0
+            endSBrack = 0
+            continue
+        elif token == "]":
+            openSBrack = 0
+            inSBrack = 0
+            endSBrack = 1
+            continue
 
-# 为所有文件设置列并初始化
-for i in range(len(filelist.file)):
-    filelist.file[i].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
+        # treat as filename
+        filelist.add(token, timelabel_str)
+        print(filelist.file[-1].filename)
+        filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
+        if inSBrack:
+            filelist.append_file_i2_to_i1(-2, -1)
+        if openSBrack:
+            inSBrack = 1
+            openSBrack = 0
+        if inCBrack:
+            filelist.merge_file_i2_into_i1(-2, -1)
+        if openCBrack:
+            inCBrack = 1
+            openCBrack = 0
 
-graph_time = filelist.mintime()
-graph_timelist = filelist.get_timelist()
-graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
+    # no files error
+    if len(filelist.file) == 0:
+        print("No files given on command line.\nUse -h for help.")
+        sys.exit(1)
 
-# 如果命令行未指定 x/y/v 范围，则从数据中自动获取
-if not hasattr(sys.modules[__name__], 'graph_xmin'):
-    graph_xmin = tdata.inf_to_1e300(filelist.minx())
-    graph_xmax = tdata.inf_to_1e300(filelist.maxx())
-if not hasattr(sys.modules[__name__], 'graph_ymin'):
-    graph_ymin = tdata.inf_to_1e300(filelist.miny())
-    graph_ymax = tdata.inf_to_1e300(filelist.maxy())
-if not hasattr(sys.modules[__name__], 'graph_vmin'):
-    graph_vmin = tdata.inf_to_1e300(filelist.minv())
-    graph_vmax = tdata.inf_to_1e300(filelist.maxv())
+    # 为所有文件设置列并初始化
+    for i in range(len(filelist.file)):
+        filelist.file[i].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
+
+    graph_time = filelist.mintime()
+    graph_timelist = filelist.get_timelist()
+    graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
+
+    # 如果命令行未指定 x/y/v 范围，则从数据中自动获取
+    if not hasattr(sys.modules[__name__], 'graph_xmin'):
+        graph_xmin = tdata.inf_to_1e300(filelist.minx())
+        graph_xmax = tdata.inf_to_1e300(filelist.maxx())
+    if not hasattr(sys.modules[__name__], 'graph_ymin'):
+        graph_ymin = tdata.inf_to_1e300(filelist.miny())
+        graph_ymax = tdata.inf_to_1e300(filelist.maxy())
+    if not hasattr(sys.modules[__name__], 'graph_vmin'):
+        graph_vmin = tdata.inf_to_1e300(filelist.minv())
+        graph_vmax = tdata.inf_to_1e300(filelist.maxv())
+
+
+# execute initialization whenever the module is imported (or
+# for backwards compatibility when it is reloaded during tests).
+initialize()
 
 # -----------------------
 #   一些全局状态

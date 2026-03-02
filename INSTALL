@@ -1,26 +1,41 @@
-DEPENDENCE
+DEPENDENCIES
 
-This will depend on:
-- Python3 (yes, this port only consider `python3`)
-- `matplotlib`: to plot data
-- `numpy`: to deal with data
-- `pygobject`: to draw GTK3 window
+The GTK frontend requires a recent Python 3 installation along with
+these packages:
+
+  * numpy
+  * matplotlib
+  * pygobject (PyGObject / GTK 3)
+
+Most distributions provide the above; for example on Debian/Ubuntu:
+
+    sudo apt install python3-matplotlib python3-gi
+
+Older versions of tgraph also used Tk and tkinter, but the GTK port does
+not require them.
 
 INSTALLATION
-	Make a symbolic link to tgraph.py, e.g. by entering:
-		ln -s ~/tgraph/tgraph.py ~/bin/tgraph.py
-	Or copy tgraph.py, tdata.py and tgraph.txt into the same directory
-	(e.g. ~/bin). Also make sure that tgraph.py is executable
-	(chmod a+x tgraph.py).
 
-	Since tgraph.py is written in python, you also need to install python,
-	plus the python packages tkinter, tkinter.ttk, numpy and matplotlib.
-	To get all these on a current Debian system, it suffices to enter:
-		apt install python3-matplotlib
-	On most supercomputers it suffices to enter:
-		module load anaconda
+A simple ``make install`` is provided to mimic the behaviour of typical
+GNU/Linux packages.  By default it installs into ``~/.local`` for a
+regular user and ``/usr/local`` when run as root.  The resulting layout
+is:
 
-	tgraph.py was written for python3, but it will also run	with python2.
-	The version it uses depends on which version the command python
-	points to. On a current Debian system this should be set by:
-		apt install python-is-python3
+    $(prefix)/bin/tgraph          # executable script
+    $(prefix)/bin/tdata.py        # helper module
+    $(prefix)/bin/tgraph.txt      # descriptive text file
+
+The installer merely copies the three source files into ``$(bindir)``;
+``tgraph`` is made executable and will locate ``tdata.py`` next to
+itself at runtime, so nothing needs to be added to ``$PYTHONPATH``.
+
+Usage after installation is as simple as running ``tgraph`` from your
+PATH.  Uninstalling is just as easy (``make uninstall``).
+
+If you prefer to run from the source tree, there is no need to install
+anything; make sure ``src`` is on ``PYTHONPATH`` or call the script
+directly (``python3 src/tgraph.py``).
+
+For development the tests exercise the module directly and already
+adjust ``sys.path`` so that ``import tgraph`` works from the repository
+root.
