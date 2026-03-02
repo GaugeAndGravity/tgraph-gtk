@@ -205,6 +205,9 @@ graph_plot_scatter = 0
 graph_clear_on_replot = 1
 graph_plot_closest_t = 1
 graph_plot_grid = 1
+# logarithmic scales
+graph_xscale = 'linear'
+graph_yscale = 'linear'
 # colormap
 graph_colormap_str = "coolwarm"  # 比如 "jet" 或 "coolwarm"
 graph_colormap = getattr(cm, graph_colormap_str)
@@ -301,6 +304,9 @@ print("stride =", graph_stride)
 def axplot2d_at_time(filelist, ax, t):
     if graph_clear_on_replot:
         ax.clear()
+    # restore axis scales (clear() resets them)
+    ax.set_xscale(graph_xscale)
+    ax.set_yscale(graph_yscale)
     for i in range(len(filelist.file)):
         f = filelist.file[i]
         xs = f.data.getx(t, graph_plot_closest_t)
@@ -568,19 +574,18 @@ def toggle_axis_on(_menuitem):
     replot()
 
 def toggle_log_xscale(_menuitem):
-    global global_ax
-    if global_ax.get_xscale() == 'linear':
-        global_ax.set_xscale('log')
-    else:
-        global_ax.set_xscale('linear')
+    global global_ax, graph_xscale
+    # flip stored state
+    graph_xscale = 'log' if graph_xscale == 'linear' else 'linear'
+    if global_ax is not None:
+        global_ax.set_xscale(graph_xscale)
     replot()
 
 def toggle_log_yscale(_menuitem):
-    global global_ax
-    if global_ax.get_yscale() == 'linear':
-        global_ax.set_yscale('log')
-    else:
-        global_ax.set_yscale('linear')
+    global global_ax, graph_yscale
+    graph_yscale = 'log' if graph_yscale == 'linear' else 'linear'
+    if global_ax is not None:
+        global_ax.set_yscale(graph_yscale)
     replot()
 
 def toggle_grid(_menuitem):
