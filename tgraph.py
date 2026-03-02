@@ -247,6 +247,26 @@ if hasattr(matplotlib.rcParams, 'legend.framealpha'):
     graph_legend['framealpha'] = matplotlib.rcParams['legend.framealpha']
 graph_legend['handlelength'] = matplotlib.rcParams['legend.handlelength']
 
+# global pointer to main application window (used as transient parent)
+main_window = None
+
+def _get_parent(menuitem):
+    """Return a suitable parent window for dialogs.
+
+    If we have stored the main window in :data:`main_window` we always use
+    that.  Otherwise fall back to ``menuitem.get_toplevel()`` (the behaviour
+    used earlier).  ``menuitem`` may be ``None`` when callbacks aren't
+    triggered from a menu.
+    """
+    if main_window is not None:
+        return main_window
+    if menuitem:
+        try:
+            return menuitem.get_toplevel()
+        except Exception:
+            pass
+    return None
+
 graph_settings = {
     'colormap': graph_colormap_str,
     'linewidth': matplotlib.rcParams['lines.linewidth'],
@@ -649,6 +669,11 @@ class GTKDialogKeyValue(Gtk.Dialog):
     """
     def __init__(self, title, keyvalues: dict, parent=None):
         super().__init__(title=title, transient_for=parent, modal=True)
+        # force dialog type hint so Wayland compositors treat it as a floating dialog
+        try:
+            self.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+        except Exception:
+            pass
         self.set_default_size(400, 300)
 
         self.keyvalues = keyvalues
@@ -688,7 +713,8 @@ class GTKDialogKeyValue(Gtk.Dialog):
 # -----------------------------------------------------------------------------------
 def input_graph_limits(_menuitem):
     global graph_limits
-    dlg = GTKDialogKeyValue("Edit Limits", graph_limits)
+    parent = _get_parent(_menuitem)
+    dlg = GTKDialogKeyValue("Edit Limits", graph_limits, parent=parent)
     dlg.run()  # 阻塞等待
     dlg.destroy()
 
@@ -705,7 +731,8 @@ def input_graph_limits(_menuitem):
 
 def input_graph_labels(_menuitem):
     global graph_labels, graph_labelsOn
-    dlg = GTKDialogKeyValue("Edit Labels", graph_labels)
+    parent = _get_parent(_menuitem)
+    dlg = GTKDialogKeyValue("Edit Labels", graph_labels, parent=parent)
     dlg.run()
     dlg.destroy()
 
@@ -717,7 +744,8 @@ def input_graph_labels(_menuitem):
 
 def input_graph_legend(_menuitem):
     global graph_legend, graph_legendOn, filelist
-    dlg = GTKDialogKeyValue("Edit Legend", graph_legend)
+    parent = _get_parent(_menuitem)
+    dlg = GTKDialogKeyValue("Edit Legend", graph_legend, parent=parent)
     dlg.run()
     dlg.destroy()
 
@@ -743,7 +771,8 @@ def input_graph_legend(_menuitem):
 
 def input_graph_settings(_menuitem):
     global graph_settings, graph_stride, graph_colormap, graph_colormap_str
-    dlg = GTKDialogKeyValue("Graph Settings", graph_settings)
+    parent = _get_parent(_menuitem)
+    dlg = GTKDialogKeyValue("Graph Settings", graph_settings, parent=parent)
     dlg.run()
     dlg.destroy()
 
@@ -764,11 +793,12 @@ def input_graph_xcolumns(_menuitem):
     """
     用来修改每个 file 的 xcol
     """
+    parent = _get_parent(_menuitem)
     # 准备一个 dict
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(filelist.file[i].data.get_xcol0() + 1)
-    dlg = GTKDialogKeyValue("Select x-Columns", d)
+    dlg = GTKDialogKeyValue("Select x-Columns", d, parent=parent)
     dlg.run()
     dlg.destroy()
     # 应用
@@ -785,10 +815,11 @@ def input_graph_xcolumns(_menuitem):
     replot()
 
 def input_graph_ycolumns(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(filelist.file[i].data.get_ycol0() + 1)
-    dlg = GTKDialogKeyValue("Select y-Columns", d)
+    dlg = GTKDialogKeyValue("Select y-Columns", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -803,10 +834,11 @@ def input_graph_ycolumns(_menuitem):
     replot()
 
 def input_graph_vcolumns(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(filelist.file[i].data.get_vcol0() + 1)
-    dlg = GTKDialogKeyValue("Select v-Columns", d)
+    dlg = GTKDialogKeyValue("Select v-Columns", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -821,10 +853,11 @@ def input_graph_vcolumns(_menuitem):
     replot()
 
 def input_graph_linecolors(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = graph_linecolors[f"#{i}"]
-    dlg = GTKDialogKeyValue("Edit Line Colors", d)
+    dlg = GTKDialogKeyValue("Edit Line Colors", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -832,10 +865,11 @@ def input_graph_linecolors(_menuitem):
     replot()
 
 def input_graph_linestyles(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = graph_linestyles[f"#{i}"]
-    dlg = GTKDialogKeyValue("Edit Line Styles", d)
+    dlg = GTKDialogKeyValue("Edit Line Styles", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -843,10 +877,11 @@ def input_graph_linestyles(_menuitem):
     replot()
 
 def input_graph_linemarkers(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = graph_linemarkers[f"#{i}"]
-    dlg = GTKDialogKeyValue("Edit Line Markers", d)
+    dlg = GTKDialogKeyValue("Edit Line Markers", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -854,10 +889,11 @@ def input_graph_linemarkers(_menuitem):
     replot()
 
 def input_graph_linemarkersizes(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(graph_linemarkersizes[f"#{i}"])
-    dlg = GTKDialogKeyValue("Edit Line Markersizes", d)
+    dlg = GTKDialogKeyValue("Edit Line Markersizes", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -865,10 +901,11 @@ def input_graph_linemarkersizes(_menuitem):
     replot()
 
 def input_graph_linewidths(_menuitem):
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(graph_linewidths[f"#{i}"])
-    dlg = GTKDialogKeyValue("Edit Line Widths", d)
+    dlg = GTKDialogKeyValue("Edit Line Widths", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -880,10 +917,11 @@ def input_graph_coltrafos(_menuitem):
     """
     与原脚本类似，可对列进行表达式变换。此处示例仅保留 UI，不详细演示 transform_col。
     """
+    parent = _get_parent(_menuitem)
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = graph_coltrafos[f"#{i}"]
-    dlg = GTKDialogKeyValue("Transform Columns", d)
+    dlg = GTKDialogKeyValue("Transform Columns", d, parent=parent)
     dlg.run()
     dlg.destroy()
     for i in range(len(filelist.file)):
@@ -895,16 +933,25 @@ def input_graph_coltrafos(_menuitem):
     replot()
 
 def about_dialog(_menuitem):
+    parent = _get_parent(_menuitem)
     md = Gtk.MessageDialog(
+        transient_for=parent,
+        modal=True,
         text=f"tgraph {tgraph_version}\n\n"
                        "Copyright (C) 2015 Wolfgang Tichy.\n"
                        "Ported to GTK by Yingjie Wang.\n",
         buttons=Gtk.ButtonsType.OK
     )
+    # hint as a dialog for Wayland
+    try:
+        md.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+    except Exception:
+        pass
     md.run()
     md.destroy()
 
 def help_dialog(_menuitem):
+    parent = _get_parent(_menuitem)
     # 简单读一下 tgraph.txt
     tgraph_txt_file = os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt")
     helptext = "tgraph.txt not found!"
@@ -913,7 +960,11 @@ def help_dialog(_menuitem):
             helptext = f.read()
 
     # 用 TextView 显示
-    dialog = Gtk.Dialog(title="tgraph help", modal=True)
+    dialog = Gtk.Dialog(title="tgraph help", transient_for=parent, modal=True)
+    try:
+        dialog.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+    except Exception:
+        pass
     dialog.set_default_size(600, 400)
     box = dialog.get_content_area()
     scrolled_win = Gtk.ScrolledWindow()
@@ -941,11 +992,16 @@ def open_file_dialog(_menuitem):
     """
     允许用户通过 FileChooserDialog 选择多个新文件，并添加到 filelist。
     """
+    parent = _get_parent(_menuitem)
     dialog = Gtk.FileChooserDialog(
         title="Open File(s)",
-        parent=None,
+        parent=parent,
         action=Gtk.FileChooserAction.OPEN
     )
+    try:
+        dialog.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+    except Exception:
+        pass
     dialog.add_buttons(
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         Gtk.STOCK_OPEN,   Gtk.ResponseType.OK
@@ -1021,10 +1077,16 @@ def save_movieframes_dialog(_menuitem):
     弹出一个 “Save As” 对话框，指定输出文件名。例如 “frame.png”。
     然后把所有时间帧以 "basename_{index}.ext" 的形式保存下来。
     """
+    parent = _get_parent(_menuitem)
     dialog = Gtk.FileChooserDialog(
         title="Save Movie Frames",
+        parent=parent,
         action=Gtk.FileChooserAction.SAVE
     )
+    try:
+        dialog.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+    except Exception:
+        pass
     dialog.add_buttons(
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         Gtk.STOCK_SAVE,   Gtk.ResponseType.OK
@@ -1093,6 +1155,8 @@ def save_movieframes_dialog(_menuitem):
 class GTKGraphWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="GTK tgraph")
+        global main_window
+        main_window = self
         self.set_default_size(900, 700)
 
         # 创建一个垂直布局
