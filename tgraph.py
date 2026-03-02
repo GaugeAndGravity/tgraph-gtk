@@ -51,135 +51,129 @@ xcol = 0
 ycol = 1
 zcol = 2
 vcol = 1
-print("Default cols:", xcol+1, ycol+1, ":", vcol+1)
 
 graph_stride = 1
 
-# 解析命令行，构造 filelist
+
+# 解析命令行并构造 filelist，使用 argparse 简化参数处理
+import argparse
+
+def _parse_cols(s: str):
+    parts = s.split(":")
+    if len(parts) not in (2, 3):
+        raise argparse.ArgumentTypeError("-c/--cols must be x:v or x:y:v")
+    cols = [int(p) - 1 for p in parts]
+    if len(cols) == 2:
+        return cols[0], None, cols[1]
+    else:
+        return cols[0], cols[1], cols[2]
+
+
+def _parse_range(s: str):
+    parts = s.split(":")
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError("range must be MIN:MAX")
+    return float(parts[0]), float(parts[1])
+
+
+def parse_cmdline():
+    parser = argparse.ArgumentParser(
+        description="GTK tgraph plotting tool (GTK front-end for tdata)")
+    parser.add_argument("-c", "--cols", metavar="X[:Y]:V",
+                        help="select columns, e.g. 1:2 or 1:2:3",
+                        type=_parse_cols)
+    parser.add_argument("-x", "--xrange", metavar="MIN:MAX",
+                        help="x axis limits", type=_parse_range)
+    parser.add_argument("-y", "--yrange", metavar="MIN:MAX",
+                        help="y axis limits", type=_parse_range)
+    parser.add_argument("-v", "--vrange", metavar="MIN:MAX",
+                        help="value (v) limits", type=_parse_range)
+    parser.add_argument("-s", "--stride", metavar="N", type=int,
+                        help="data stride", default=1)
+    parser.add_argument("-t", "--time-label", metavar="STR",
+                        help="time column label", default="time")
+    parser.add_argument("-m", "--marker", action="store_true",
+                        help="plot markers")
+    parser.add_argument("files", nargs="*",
+                        help="input files; supports { } and [ ] syntax")
+    return parser.parse_args()
+
+
+# call parser and apply options
+args = parse_cmdline()
+
 filelist = tdata.tFileList()
-argvs = sys.argv[1:]
 print("Trying to open files:")
 
-gotC = 0
-gotx = 0
-goty = 0
-gotv = 0
-gots = 0
-gott = 0
-timelabel_str = "time"
-got_xrange = 0
-got_yrange = 0
-got_vrange = 0
-openCBrack = 0
-inCBrack = 0
-openSBrack = 0
-inSBrack = 0
-endSBrack = 0
+# apply simple options
+if args.cols is not None:
+    xcol, ycol_tmp, vcol_tmp = args.cols
+    if ycol_tmp is not None:
+        ycol = ycol_tmp
+    vcol = vcol_tmp
 
-for argv in argvs:
-    if argv.startswith("-c"):
-        gotC = 1
-        continue
-    elif argv.startswith("-x"):
-        gotx = 1
-        continue
-    elif argv.startswith("-y"):
-        goty = 1
-        continue
-    elif argv.startswith("-v"):
-        gotv = 1
-        continue
-    elif argv.startswith("-s"):
-        gots = 1
-        continue
-    elif argv.startswith("-t"):
-        gott = 1
-        continue
-    elif argv.startswith("-m"):
-        matplotlib.rcParams['lines.marker'] = 'o'
-        continue
+if args.marker:
+    matplotlib.rcParams['lines.marker'] = 'o'
 
-    # 处理 -c 后跟的 “xcol:vcol” 或 “xcol:ycol:vcol”
-    if gotC == 1:
-        cols = argv.split(":")
-        xcol = int(cols[0]) - 1
-        if len(cols) == 2:
-            vcol = int(cols[1]) - 1
-        elif len(cols) == 3:
-            ycol = int(cols[1]) - 1
-            vcol = int(cols[2]) - 1
-        print("cols:", xcol+1, ycol+1, ":", vcol+1)
-        gotC = 0
-        continue
+graph_stride = args.stride
 
-    # 处理 -x/-y/-v 后跟的 “min:max”
-    if gotx == 1 or goty == 1 or gotv == 1:
-        parts = argv.split(":")
-        if len(parts) == 2:
-            mn = float(parts[0])
-            mx = float(parts[1])
-            if gotx:
-                graph_xmin, graph_xmax = mn, mx
-                got_xrange = 1
-            elif goty:
-                graph_ymin, graph_ymax = mn, mx
-                got_yrange = 1
-            else:
-                graph_vmin, graph_vmax = mn, mx
-                got_vrange = 1
-        gotx = goty = gotv = 0
-        continue
+timelabel_str = args.time_label.lower()
 
-    # 处理 -s
-    if gots == 1:
-        graph_stride = int(argv)
-        gots = 0
-        continue
+# report the columns that will be used (defaults if not overridden)
+print("cols:", xcol+1, ycol+1, ":", vcol+1)
 
-    # 处理 -t
-    if gott == 1:
-        timelabel_str = str(argv).lower()
-        gott = 0
-        continue
+got_xrange = got_yrange = got_vrange = 0
+if args.xrange is not None:
+    graph_xmin, graph_xmax = args.xrange
+    got_xrange = 1
+if args.yrange is not None:
+    graph_ymin, graph_ymax = args.yrange
+    got_yrange = 1
+if args.vrange is not None:
+    graph_vmin, graph_vmax = args.vrange
+    got_vrange = 1
 
-    # 处理 { } [ ] 等文件合并语法
-    if argv == "{":
+# bracket handling state
+openCBrack = inCBrack = openSBrack = inSBrack = endSBrack = 0
+
+for token in args.files:
+    if token == "{":
         openCBrack = 1
         inCBrack = 0
         continue
-    elif argv == "}":
+    elif token == "}":
         openCBrack = 0
         inCBrack = 0
         continue
-    elif argv == "[":
+    elif token == "[":
         openSBrack = 1
         inSBrack = 0
         endSBrack = 0
         continue
-    elif argv == "]":
+    elif token == "]":
         openSBrack = 0
         inSBrack = 0
         endSBrack = 1
-    else:
-        # 视作文件名
-        filelist.add(argv, timelabel_str)
-        print(filelist.file[-1].filename)
-        filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
-        if inSBrack:
-            filelist.append_file_i2_to_i1(-2, -1)
-        if openSBrack:
-            inSBrack = 1
-            openSBrack = 0
-        if inCBrack:
-            filelist.merge_file_i2_into_i1(-2, -1)
-        if openCBrack:
-            inCBrack = 1
-            openCBrack = 0
+        continue
 
-# 若未传入任何文件，打印帮助退出
+    # treat as filename
+    filelist.add(token, timelabel_str)
+    print(filelist.file[-1].filename)
+    filelist.file[-1].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
+    if inSBrack:
+        filelist.append_file_i2_to_i1(-2, -1)
+    if openSBrack:
+        inSBrack = 1
+        openSBrack = 0
+    if inCBrack:
+        filelist.merge_file_i2_into_i1(-2, -1)
+    if openCBrack:
+        inCBrack = 1
+        openCBrack = 0
+
+# no files error
 if len(filelist.file) == 0:
-    print("No files given on command line.\nExample usage:")
-    print("  ./gtk_tgraph_full.py file1 file2 -c 1:2")
+    print("No files given on command line.\nUse -h for help.")
     sys.exit(1)
 
 # 为所有文件设置列并初始化

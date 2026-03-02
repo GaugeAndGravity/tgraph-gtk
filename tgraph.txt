@@ -2,7 +2,7 @@ NAME
 	tgraph.py - plot 1D and 2D data files
 
 SYNOPSIS
-	tgraph.py [OPTION]... FILE... { FILE... } ... [ FILE... ]
+	tgraph.py [OPTIONS] FILE...    # supports brace and bracket grouping
 
 DESCRIPTION
 	Plot and animate data from files that contain multiple timeframes.
@@ -22,31 +22,27 @@ OPTIONS
 	[ FILE... ]
 		add timeframes from different files by enclosing files in [ ]
 
-	-c XCOL:VCOL
-		Specify which columns of a file we use for a 2D plot. Can be 
-		specified for each file.
+	-c X[:Y]:V, --cols X[:Y]:V
+		Select columns. two values selects x and v, three values select x,y,v.
+		Can be repeated for different files (handled by grouping).
 
-	-c XCOL:YCOL:VCOL
-		Specify which columns of a file we use for a 3D plot. Can be
-		specified for each file.
+	-x MIN:MAX, --xrange MIN:MAX
+		Specify x-range for plots.
 
-	-x XMIN:XMAX
-		Specify x-range for all 2D and 3D plots.
+	-y MIN:MAX, --yrange MIN:MAX
+		Specify y-range for 3D plots.
 
-	-y YMIN:YMAX
-		Specify y-range for all 3D plots.
+	-v MIN:MAX, --vrange MIN:MAX
+		Specify v (value) range for plots.
 
-	-v VMIN:VMAX
-		Specify value- or v-range for all 2D and 3D plots.
+	-t STR, --time-label STR
+		String used to identify time labels in data files (case-insensitive).
 
-	-t TIMELABEL
-		Specify string used to find timelabels in data files.
+	-s N, --stride N
+		Stride (step size) used when sampling input data (default 1).
 
-	-s STRIDE
-		Specify stride (or step size) used to sample input data.
-
-	-m
-		Mark each point.
+	-m, --marker
+		Plot markers at each data point.
 
 EXAMPLES
 	select columns 1,2 in file1 and columns 1,4 of file2,file3 added
