@@ -24,11 +24,15 @@ install:  ## install into $(PREFIX)
 	install -d "$(BINDIR)"
 	install -m 755 "$(SCRIPT_SRC)" "$(BINDIR)/tgraph"
 	install -m 644 "$(MODULE_SRC)" "$(BINDIR)/tdata.py"
-	install -m 644 "$(TEXT_SRC)" "$(BINDIR)/tgraph.txt"
+	# documentation goes under share/doc/tgraph
+	install -d "$(PREFIX)/share/doc/tgraph"
+	install -m 644 "$(TEXT_SRC)" "$(PREFIX)/share/doc/tgraph/tgraph.txt"
 
 uninstall:  ## remove installed files
-	@echo "Removing files from $(BINDIR)"
-	rm -f "$(BINDIR)/tgraph" "$(BINDIR)/tdata.py" "$(BINDIR)/tgraph.txt"
+	@echo "Removing files from $(BINDIR) and documentation"
+	rm -f "$(BINDIR)/tgraph" "$(BINDIR)/tdata.py"
+	rm -f "$(PREFIX)/share/doc/tgraph/tgraph.txt"
+	rmdir --ignore-fail-on-non-empty "$(PREFIX)/share/doc/tgraph"
 
 clean:  ## nothing to clean for now
 	@echo "nothing to clean"

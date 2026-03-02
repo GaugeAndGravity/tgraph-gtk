@@ -978,13 +978,35 @@ def about_dialog(_menuitem):
     md.run()
     md.destroy()
 
+def _find_help_file():
+    """Return the path to ``tgraph.txt`` if it exists.
+
+    We prefer a copy next to ``tdata.py`` (useful during development); if
+    that file is missing look under ``$(prefix)/share/doc/tgraph`` where
+    ``make install`` now places it.  ``prefix`` is assumed to be the parent
+    directory of the directory containing this script (i.e. ``bin``).
+    """
+    # development / source tree location
+    candidate = os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt")
+    if os.path.exists(candidate):
+        return candidate
+
+    # installed location: ../share/doc/tgraph/tgraph.txt
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    prefix = os.path.dirname(script_dir)
+    candidate = os.path.join(prefix, "share", "doc", "tgraph", "tgraph.txt")
+    if os.path.exists(candidate):
+        return candidate
+
+    return None
+
+
 def help_dialog(_menuitem):
     parent = _get_parent(_menuitem)
-    # 简单读一下 tgraph.txt
-    tgraph_txt_file = os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt")
     helptext = "tgraph.txt not found!"
-    if os.path.exists(tgraph_txt_file):
-        with open(tgraph_txt_file, "r") as f:
+    path = _find_help_file()
+    if path is not None:
+        with open(path, "r") as f:
             helptext = f.read()
 
     # 用 TextView 显示

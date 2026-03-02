@@ -199,6 +199,31 @@ def test_transform_parent_fallback(tg_module):
 def test_get_parent_logic(tg_module):
     # _get_parent should prefer global main_window when set, and handle None
     tg_module.main_window = None
+
+def test_find_help_in_installed_location(tmp_path, tg_module, monkeypatch):
+    # make sure fallback to share/doc works when tdata copy isn't present
+    import os
+    tg = tg_module
+    # pretend tdata is in a different location without tgraph.txt
+    monkeypatch.setattr(tg_module, 'tdata', tg_module.tdata)
+    fake_tdata = type('Dummy', (), {})()
+    fake_tdata.__file__ = str(tmp_path / "nowhere" / "tdata.py")
+    monkeypatch.setattr(tg_module, 'tdata', fake_tdata)
+
+    # create prefix/bin structure and share/doc path
+    prefix = tmp_path / "prefix"
+    bin_dir = prefix / "bin"
+    doc_dir = prefix / "share" / "doc" / "tgraph"
+    bin_dir.mkdir(parents=True)
+    doc_dir.mkdir(parents=True)
+    helpfile = doc_dir / "tgraph.txt"
+    helpfile.write_text("installed help\n")
+
+    # monkeypatch __file__ used by _find_help_file
+    monkeypatch.setattr(tg_module, '__file__', str(bin_dir / "tgraph"))
+
+    result = tg_module._find_help_file()
+    assert result == str(helpfile)
     class Dummy:
         def __init__(self, w):
             self._w = w
