@@ -6,14 +6,14 @@ import os
 import numpy as np
 
 # -----------------------
-#  0) Python 版本检查
+#  0) Python version check
 # -----------------------
 if sys.version_info[0] < 3:
     print("Please use Python 3 or above.")
     sys.exit(1)
 
 # -----------------------
-#  1) 设置 matplotlib 后端为 GTK3Agg
+#  1) set matplotlib backend to GTK3Agg
 # -----------------------
 import matplotlib
 matplotlib.use("GTK3Agg")
@@ -27,14 +27,14 @@ from matplotlib.backends.backend_gtk3 import NavigationToolbar2GTK3 as Navigatio
 
 
 # -----------------------
-#  2) 导入 PyGObject
+#  2) import PyGObject
 # -----------------------
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 
 # -----------------------
-#  3) 导入 tdata.py (ensure script directory is on import path)
+#  3) import tdata.py (ensure script directory is on import path)
 # -----------------------
 # when installed the script may live in a bindir; we want to load the
 # sibling tdata.py that will be placed next to the script.  ``realpath``
@@ -46,14 +46,15 @@ if _script_dir not in sys.path:
 import tdata
 
 # -----------------------------------------------------------------------------------
-#          以下部分为原 tgraph.py 中的数据处理、命令行解析、全局变量等
+#          following section contains data handling, command-line parsing,
+#          global variables, etc. from the original tgraph.py
 # -----------------------------------------------------------------------------------
 
 tgraph_version = "GTK-ported-1.0"
 
 print("GTK tgraph version:", tgraph_version)
 
-# 默认列
+# default columns
 xcol = 0
 ycol = 1
 zcol = 2
@@ -62,7 +63,7 @@ vcol = 1
 graph_stride = 1
 
 
-# 解析命令行并构造 filelist，使用 argparse 简化参数处理
+# parse command line and construct filelist; argparse simplifies argument handling
 import argparse
 
 def _parse_cols(s: str):
@@ -118,7 +119,7 @@ def parse_cmdline(argv=None):
 #  glue logic that used to execute on import; factor it into a callable
 # ---------------------------------------------------------------------------
 def initialize(argv=None):
-    """Perform command‑line parsing and build global state.
+    """Perform command-line parsing and build global state.
 
     This function used to run at import time; tests rely on importing the
     module after adjusting ``sys.argv``.  ``argv`` may also be passed
@@ -207,7 +208,7 @@ def initialize(argv=None):
         print("No files given on command line.\nUse -h for help.")
         sys.exit(1)
 
-    # 为所有文件设置列并初始化
+    # set columns and initialize for all files
     for i in range(len(filelist.file)):
         filelist.file[i].data.set_cols(xcol=xcol, ycol=ycol, zcol=2, vcol=vcol)
 
@@ -215,7 +216,7 @@ def initialize(argv=None):
     graph_timelist = filelist.get_timelist()
     graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
 
-    # 如果命令行未指定 x/y/v 范围，则从数据中自动获取
+    # if command-line did not specify x/y/v range, derive from data
     if not hasattr(sys.modules[__name__], 'graph_xmin'):
         graph_xmin = tdata.inf_to_1e300(filelist.minx())
         graph_xmax = tdata.inf_to_1e300(filelist.maxx())
@@ -232,7 +233,7 @@ def initialize(argv=None):
 initialize()
 
 # -----------------------
-#   一些全局状态
+#   some global state
 # -----------------------
 graph_3dOn = 0
 graph_axis_on = 1
@@ -245,11 +246,11 @@ graph_plot_grid = 1
 graph_xscale = 'linear'
 graph_yscale = 'linear'
 # colormap
-graph_colormap_str = "coolwarm"  # 比如 "jet" 或 "coolwarm"
+graph_colormap_str = "coolwarm"  # e.g. "jet" or "coolwarm"
 graph_colormap = getattr(cm, graph_colormap_str)
 
 # -----------------------
-#   字典存储相关设置
+#   dictionary stores related settings
 # -----------------------
 graph_labelsOn = 0
 graph_labels = {
@@ -320,11 +321,11 @@ graph_linemarkersizes = {}
 graph_linewidths = {}
 graph_coltrafos = {}
 
-# 初始化时，为每个文件分配一个默认颜色
+# assign a default color to each file at initialization
 def set_graph_globals_for_file_i(filelist, i):
-    # 类似 tgraph.py 对 color_cycle 的使用
+    # similar to tgraph.py's use of color_cycle
     if matplotlib.__version__ < '1.5.1':
-        # 老版本 color_cycle
+        # older matplotlib versions used axes.color_cycle
         color_cycle = matplotlib.rcParams.get('axes.color_cycle', [
             '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
             '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
@@ -342,7 +343,7 @@ def set_graph_globals_for_file_i(filelist, i):
     graph_linemarkersizes[f"#{i}"] = matplotlib.rcParams['lines.markersize']
     graph_linewidths[f"#{i}"] = ""
     graph_coltrafos[f"#{i}"] = ""
-    # graph_legend 中存储该文件的名字
+    # store the file's name in graph_legend
     graph_legend[f"#{i}"] = filelist.file[i].name
 
 for i in range(len(filelist.file)):
@@ -355,7 +356,7 @@ print("(vmin, vmax) =", graph_vmin, graph_vmax)
 print("stride =", graph_stride)
 
 # -----------------------------------------------------------------------------------
-#   2D/3D 绘图函数
+#   2D/3D plotting functions
 # -----------------------------------------------------------------------------------
 def axplot2d_at_time(filelist, ax, t):
     if graph_clear_on_replot:
@@ -391,12 +392,12 @@ def axplot2d_at_time(filelist, ax, t):
         ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
         ax.set_ylabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
 
-        # 标题与时间
+        # title and time
         title = graph_labels['title']
         tf = graph_labels['timeformat']
         if tf:
             tstr = tf % t
-            # 标题右对齐显示时间
+            # append time to title, right-aligned
             title += "    " + tstr
         ax.set_title(title)
     else:
@@ -417,7 +418,8 @@ def axplot2d_at_time(filelist, ax, t):
 
 def axplot3d_at_time(filelist, ax, t):
     """
-    与原 tgraph.py 类似，以 x, y 为面上坐标，v 为 z。
+    Like the original tgraph.py: x and y form surface coordinates while v
+    serves as the z value.
     """
     from mpl_toolkits.mplot3d import axes3d
     if graph_clear_on_replot:
@@ -425,9 +427,9 @@ def axplot3d_at_time(filelist, ax, t):
 
     for i in range(len(filelist.file)):
         f = filelist.file[i]
-        # 读取 blocks 以判断数据换行
+        # read blocks to determine data line breaks
         blocks = f.data.getblocks(t)
-        # 变形
+        # reshape
         x = np.reshape(f.data.getx(t, graph_plot_closest_t), (blocks, -1))
         y = np.reshape(f.data.gety(t, graph_plot_closest_t), (blocks, -1))
         z = np.reshape(f.data.getv(t, graph_plot_closest_t), (blocks, -1))
@@ -488,16 +490,16 @@ def axplot3d_at_time(filelist, ax, t):
         ax.set_zlabel("")
         ax.set_title("")
 
-    # 注意 3D surface 不支持 legend
+    # note: 3D surfaces do not support a legend
     if graph_legendOn and not graph_plot_surface:
         ax.legend()
 
     if not graph_axis_on:
         ax.set_axis_off()
 
-graph_delay = 1  # 新增，用于控制播放的延时(ms)
+graph_delay = 1  # added: controls playback delay (ms)
 
-# 新增：对时间值进行增/减、首/末帧、播放相关函数
+# added: functions to increment/decrement time, jump to first/last frame, playback controls
 def min_graph_time():
     global graph_time, graph_timeindex
     graph_timeindex = 0
@@ -524,45 +526,45 @@ def dec_graph_time():
     graph_time = graph_timelist[graph_timeindex]
     replot()
 
-# 播放时要有个全局变量存放计时器ID，以便停止
+# use a global variable to store timer ID for playback control
 playback_id = None
 
 def play_graph_time():
     """
-    每次调用时，把时间帧 +1 并 replot。如果还没到最后，则继续下一次定时。
-    如果到最后一帧，则停止。
+    Each call increments the time frame and replots.  If not at the last
+    frame, schedule another timeout; otherwise stop playback.
     """
     global graph_timeindex, playback_id, graph_delay
 
-    inc_graph_time()  # 已经会 replot
+    inc_graph_time()  # inc_graph_time already replots
     if graph_timeindex < len(graph_timelist) - 1:
-        # 继续播放
+        # continue playback
         playback_id = GLib.timeout_add(int(graph_delay), play_graph_time)
     else:
-        playback_id = None  # 播放结束
+        playback_id = None  # playback finished
 
 def start_play_graph_time():
     """
-    从当前时间帧开始播放。如果已经在播，则先停止。
+    Start playback from current time frame.  If already playing, stop first.
     """
     global playback_id
     if playback_id:
-        # 正在播放 -> 停止
+        # if already playing -> stop
         GLib.source_remove(playback_id)
         playback_id = None
     else:
-        # 没在播放 -> 启动
+        # if not playing -> start
         if graph_timeindex >= len(graph_timelist) - 1:
-            # 若在末帧，则从头开始
+            # if at last frame, go back to start
             min_graph_time()
         playback_id = GLib.timeout_add(int(graph_delay), play_graph_time)
 
-# 当用户在 Entry 中敲回车或离开时，设置 graph_time
+# set graph_time when user presses Enter or leaves the Entry
 def set_graph_time_from_entry(entry):
     global graph_time, graph_timeindex
     try:
         val = float(entry.get_text().strip())
-        # 找到与 val 最接近的时间索引
+        # find the time index closest to val
         graph_timeindex = tdata.geti_from_t(graph_timelist, val)
         graph_time = graph_timelist[graph_timeindex]
         replot()
@@ -577,17 +579,17 @@ def set_delay_from_entry(entry):
     except ValueError:
         pass
 
-# 更新时间 Entry 的显示
+# update display of the time Entry
 def update_time_entry(entry):
     global graph_time
     entry.set_text(f"{graph_time}")
 
 # -----------------------------------------------------------------------------------
-#   一些工具函数（原 tgraph 中的 replot, toggle 等）
+#   some utility functions (replot, toggles, etc. from original tgraph)
 # -----------------------------------------------------------------------------------
 def setup_axes(fig, is3d, old_ax=None):
     """
-    在 fig 上重新创建 Axes（2D 或 3D）。删除旧轴。
+    Recreate Axes on a figure (2D or 3D).  Remove the old axes if provided.
     """
     if old_ax is not None:
         fig.delaxes(old_ax)
@@ -597,7 +599,7 @@ def setup_axes(fig, is3d, old_ax=None):
         from mpl_toolkits.mplot3d import Axes3D
         return fig.add_subplot(111, projection='3d')
 
-# 全局引用，方便菜单回调
+# global references for menu callbacks
 global_fig = None
 global_ax = None
 global_canvas = None
@@ -617,7 +619,7 @@ def replot():
 
     global_canvas.draw()
 
-# 菜单回调：toggles
+# menu callbacks: toggles
 def toggle_timeframe_update(_menuitem):
     global graph_clear_on_replot
     graph_clear_on_replot = 0 if graph_clear_on_replot else 1
@@ -656,7 +658,7 @@ def toggle_grid(_menuitem):
 def toggle_line_scatter(_menuitem):
     global graph_plot_surface, graph_plot_scatter
     if graph_plot_surface:
-        # 若原先是 surface，先关掉
+        # if it was surface mode before, turn it off first
         graph_plot_surface = 0
     graph_plot_scatter = 0 if graph_plot_scatter else 1
     replot()
@@ -679,8 +681,7 @@ def toggle_surface(_menuitem):
 def toggle_labels(_menuitem):
     global graph_labelsOn
     graph_labelsOn = 0 if graph_labelsOn else 1
-    # 若 labels 关闭，可把 label 全清空；也可以仅不显示
-    # 这里简化仅视作“显示/隐藏”
+    # if labels are off we could clear them; instead simplify to hide/show only
     replot()
 
 def toggle_legend(_menuitem):
@@ -689,11 +690,12 @@ def toggle_legend(_menuitem):
     replot()
 
 # -----------------------------------------------------------------------------------
-#   “对话框” 用于编辑若干 key->value 的界面
+#   A 'dialog' used to edit several key->value pairs
 # -----------------------------------------------------------------------------------
 class GTKDialogKeyValue(Gtk.Dialog):
     """
-    类似原先 WTdialog，用来修改一个 dict 中的字符串 / 数值。
+    Similar to the original WTdialog; used to edit string/numeric values in a
+    dictionary.
     """
     def __init__(self, title, keyvalues: dict, parent=None):
         super().__init__(title=title, transient_for=parent, modal=True)
@@ -712,7 +714,7 @@ class GTKDialogKeyValue(Gtk.Dialog):
         vbox.add(grid)
 
         row = 0
-        # 为 dict 中每个键创建一行 (Label + Entry)
+        # create a row (Label + Entry) for each key in the dict
         for key in sorted(keyvalues.keys()):
             label = Gtk.Label(label=key, xalign=1.0)
             entry = Gtk.Entry()
@@ -722,7 +724,7 @@ class GTKDialogKeyValue(Gtk.Dialog):
             grid.attach(entry, 1, row, 1, 1)
             row += 1
 
-        # 底部按钮
+        # bottom button
         self.ok_button = Gtk.Button(label="Apply")
         self.ok_button.connect("clicked", self.on_apply)
         grid.attach(self.ok_button, 0, row, 2, 1)
@@ -730,24 +732,24 @@ class GTKDialogKeyValue(Gtk.Dialog):
         self.show_all()
 
     def on_apply(self, button):
-        # 从对话框的 entries 中获取值
+        # fetch values from the dialog entries
         for k, e in self.entries.items():
             text = e.get_text().strip()
             self.keyvalues[k] = text
         self.destroy()
 
 # -----------------------------------------------------------------------------------
-#   菜单回调：各种输入对话框 -> 改变全局设置 -> replot
+#   menu callbacks: various input dialogs -> update globals -> replot
 # -----------------------------------------------------------------------------------
 def input_graph_limits(_menuitem):
     global graph_limits
     parent = _get_parent(_menuitem)
     dlg = GTKDialogKeyValue("Edit Limits", graph_limits, parent=parent)
-    dlg.run()  # 阻塞等待
+    dlg.run()  # block until dialog closes
     dlg.destroy()
 
-    # 将编辑结果写回全局
-    # 转换为 float
+    # write edited results back to globals
+    # convert to float
     graph_limits['xmin'] = float(graph_limits['xmin'])
     graph_limits['xmax'] = float(graph_limits['xmax'])
     graph_limits['ymin'] = float(graph_limits['ymin'])
@@ -764,9 +766,9 @@ def input_graph_labels(_menuitem):
     dlg.run()
     dlg.destroy()
 
-    # 转换一些值
+    # convert some values
     matplotlib.rcParams['font.size'] = float(graph_labels['fontsize'])
-    # 打开显示
+    # enable display
     graph_labelsOn = 1
     replot()
 
@@ -777,23 +779,23 @@ def input_graph_legend(_menuitem):
     dlg.run()
     dlg.destroy()
 
-    # 处理 #0, #1, #2... 对应 file 名
+    # handle #0, #1, #2... corresponding file names
     for i in range(len(filelist.file)):
         k = f"#{i}"
         if k in graph_legend:
             filelist.file[i].name = graph_legend[k]
-    # 解析 loc
+    # parse loc
     s = str(graph_legend['loc']).strip()
     if s.isdigit():
         graph_legend['loc'] = int(s)
     else:
-        # 尝试解析成 "x, y"
+        # try parsing as "x, y"
         if "," in s:
             parts = s.replace("(", "").replace(")", "").split(",")
             graph_legend['loc'] = (float(parts[0]), float(parts[1]))
     graph_legend['ncol'] = int(graph_legend['ncol'])
 
-    # 打开显示
+    # enable display
     graph_legendOn = 1
     replot()
 
@@ -804,7 +806,7 @@ def input_graph_settings(_menuitem):
     dlg.run()
     dlg.destroy()
 
-    # 应用更改
+    # apply changes
     matplotlib.rcParams['lines.linewidth'] = float(graph_settings['linewidth'])
     graph_stride = int(graph_settings['stride'])
     cmap_name = graph_settings['colormap']
@@ -819,22 +821,22 @@ def input_graph_settings(_menuitem):
 
 def input_graph_xcolumns(_menuitem):
     """
-    用来修改每个 file 的 xcol
+    Used to modify the x-column for each file
     """
     parent = _get_parent(_menuitem)
-    # 准备一个 dict
+    # prepare a dict
     d = {}
     for i in range(len(filelist.file)):
         d[f"#{i}"] = str(filelist.file[i].data.get_xcol0() + 1)
     dlg = GTKDialogKeyValue("Select x-Columns", d, parent=parent)
     dlg.run()
     dlg.destroy()
-    # 应用
+    # apply
     for i in range(len(filelist.file)):
         newcol = int(d[f"#{i}"]) - 1
         filelist.file[i].data.set_xcols(newcol)
 
-    # 重新计算 x min max
+    # recompute x min/max
     global graph_xmin, graph_xmax
     graph_xmin = tdata.inf_to_1e300(filelist.minx())
     graph_xmax = tdata.inf_to_1e300(filelist.maxx())
@@ -943,7 +945,9 @@ def input_graph_linewidths(_menuitem):
 
 def input_graph_coltrafos(_menuitem):
     """
-    与原脚本类似，可对列进行表达式变换。此处示例仅保留 UI，不详细演示 transform_col。
+    Like the original script, allows expression-based column transforms.
+    This example keeps only the UI; the actual transform_col behavior is not
+    demonstrated here.
     """
     parent = _get_parent(_menuitem)
     d = {}
@@ -1009,7 +1013,7 @@ def help_dialog(_menuitem):
         with open(path, "r") as f:
             helptext = f.read()
 
-    # 用 TextView 显示
+    # display using TextView
     dialog = Gtk.Dialog(title="tgraph help", transient_for=parent, modal=True)
     try:
         dialog.set_type_hint(Gtk.WindowTypeHint.DIALOG)
@@ -1036,11 +1040,12 @@ def help_dialog(_menuitem):
     dialog.destroy()
 
 # -----------------------------
-# 新增：Open File 对话框函数
+# Added: Open File dialog function
 # -----------------------------
 def open_file_dialog(_menuitem):
     """
-    允许用户通过 FileChooserDialog 选择多个新文件，并添加到 filelist。
+    Allow the user to choose multiple new files via a FileChooserDialog and
+    add them to the filelist.
     """
     parent = _get_parent(_menuitem)
     dialog = Gtk.FileChooserDialog(
@@ -1056,9 +1061,9 @@ def open_file_dialog(_menuitem):
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         Gtk.STOCK_OPEN,   Gtk.ResponseType.OK
     )
-    dialog.set_select_multiple(True)  # 允许多选
+    dialog.set_select_multiple(True)  # allow multiple selection
 
-    # 可以根据需要设置过滤器
+    # filters can be added here if desired
     # file_filter = Gtk.FileFilter()
     # file_filter.set_name("All files")
     # file_filter.add_pattern("*")
@@ -1066,31 +1071,31 @@ def open_file_dialog(_menuitem):
 
     response = dialog.run()
     if response == Gtk.ResponseType.OK:
-        # 获取所有选定文件
+        # retrieve all selected filenames
         filenames = dialog.get_filenames()
         print("User selected:", filenames)
 
-        # 对每个文件，交给 filelist 处理
+        # for each file, hand it over to filelist
         from math import isinf
         for fname in filenames:
             if not os.path.isfile(fname):
                 continue
-            # 假设使用默认 timelabel_str
+            # assume default timelabel_str
             timelabel_str = "time"
             filelist.add(fname, timelabel_str)
             print("Added:", filelist.file[-1].filename)
-            # 设置默认列
-            # xcol, ycol, zcol, vcol 等可从全局拿
+            # set default columns
+            # xcol, ycol, zcol, vcol etc. may be taken from globals
             filelist.file[-1].data.set_cols(xcol=0, ycol=1, zcol=2, vcol=1)
 
-        # 更新 graph_timelist, graph_time 等
+        # update graph_timelist, graph_time, etc.
         global graph_timelist, graph_time, graph_timeindex
         graph_timelist = filelist.get_timelist()
-        # 若只有初始空的话，现在可以拿到新的 time 范围
+        # if initially empty, we can now compute a new time range
         # graph_time = filelist.mintime()
         # graph_timeindex = tdata.geti_from_t(graph_timelist, graph_time)
 
-        # 更新 x/y/v 范围
+        # update x/y/v ranges
         global graph_xmin, graph_xmax, graph_ymin, graph_ymax, graph_vmin, graph_vmax
         from tdata import inf_to_1e300
         graph_xmin = inf_to_1e300(filelist.minx())
@@ -1100,7 +1105,7 @@ def open_file_dialog(_menuitem):
         graph_vmin = inf_to_1e300(filelist.minv())
         graph_vmax = inf_to_1e300(filelist.maxv())
 
-        # 同步到 graph_limits 字典
+        # sync into graph_limits dictionary
         graph_limits['xmin'] = graph_xmin
         graph_limits['xmax'] = graph_xmax
         graph_limits['ymin'] = graph_ymin
@@ -1108,24 +1113,25 @@ def open_file_dialog(_menuitem):
         graph_limits['vmin'] = graph_vmin
         graph_limits['vmax'] = graph_vmax
 
-        # 给新文件分配线条颜色/名字
+        # assign line colors/names for the new files
         for i in range(len(filelist.file)):
-            # 如果之前没初始化过，就 set_graph_globals_for_file_i
-            # 可以简单点，对最后几个新的 file 做 set_graph_globals_for_file_i
+            # if not initialized previously, call set_graph_globals_for_file_i
+            # simplest approach: apply set_graph_globals_for_file_i to the most
+            # recently added files
             pass
 
-        # 重绘
+        # redraw
         replot()
 
     dialog.destroy()
 
 # -----------------------------
-# 新增：保存序列帧函数
+# Added: save sequence of frames function
 # -----------------------------
 def save_movieframes_dialog(_menuitem):
     """
-    弹出一个 “Save As” 对话框，指定输出文件名。例如 “frame.png”。
-    然后把所有时间帧以 "basename_{index}.ext" 的形式保存下来。
+    Pop up a "Save As" dialog to pick an output filename (e.g. "frame.png").
+    Then save every time frame as "basename_{index}.ext".
     """
     parent = _get_parent(_menuitem)
     dialog = Gtk.FileChooserDialog(
@@ -1146,34 +1152,34 @@ def save_movieframes_dialog(_menuitem):
     response = dialog.run()
     if response == Gtk.ResponseType.OK:
         outname = dialog.get_filename()
-        # outname 可能是 /home/user/frame.png
+        # outname might be /home/user/frame.png
         print("Saving frames to base name:", outname)
 
-        # 处理扩展名, 基础名
+        # handle extension and base name
         base, ext = os.path.splitext(outname)
         if not ext:
-            # 若用户没写扩展名，给个默认
+            # if user didn't supply an extension, default to .png
             ext = ".png"
 
-        # 全部时间帧
+        # all time frames
         global graph_timeindex, graph_time, graph_timelist
         i1 = 0
         i2 = len(graph_timelist)
-        # 打印需要的零填充位数
+        # compute number of digits needed for zero padding
         digits = len(str(i2-1))
         fmt_str = f"%0{digits}d"
 
-        # 存储当前 index
+        # save current index
         old_index = graph_timeindex
         old_time = graph_time
 
-        # 循环保存
+        # loop and save each frame
         for idx in range(i2):
             graph_timeindex = idx
             graph_time = graph_timelist[idx]
-            replot()  # 让画面更新到对应时间
+            replot()  # allow the display to update for the current time
 
-            # 构造文件名
+            # construct filename
             frame_idx = fmt_str % idx
             filename = f"{base}_{frame_idx}{ext}"
             global_canvas.print_figure(filename)
@@ -1182,12 +1188,12 @@ def save_movieframes_dialog(_menuitem):
             if idx == i2-1:
                 last_file = filename
 
-        # 恢复之前的时间
+        # restore previous time
         graph_timeindex = old_index
         graph_time = old_time
         replot()
 
-        # 给用户提示
+        # inform the user
         info_dialog = Gtk.MessageDialog(
             parent=None,
             flags=0,
@@ -1200,7 +1206,7 @@ def save_movieframes_dialog(_menuitem):
     dialog.destroy()
 
 # -----------------------------------------------------------------------------------
-#   GTK 主窗口
+#   GTK main window
 # -----------------------------------------------------------------------------------
 class GTKGraphWindow(Gtk.Window):
     def __init__(self):
@@ -1209,15 +1215,15 @@ class GTKGraphWindow(Gtk.Window):
         main_window = self
         self.set_default_size(900, 700)
 
-        # 创建一个垂直布局
+        # create a vertical layout
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(vbox)
 
-        # 1) 菜单栏
+        # 1) menubar
         menubar = self.build_menubar()
         vbox.pack_start(menubar, False, False, 0)
 
-        # 2) 最上方增加一行“时间播放控件”
+        # 2) add a row of time playback controls at the top
         time_controls_box = self.build_time_controls()
         vbox.pack_start(time_controls_box, False, False, 4)
 
@@ -1235,7 +1241,7 @@ class GTKGraphWindow(Gtk.Window):
         toolbar = NavigationToolbar(global_canvas)
         vbox.pack_start(toolbar, False, False, 0)
 
-        # 初次绘制
+        # initial drawing
         replot()
         self.show_all()
 
@@ -1346,26 +1352,26 @@ class GTKGraphWindow(Gtk.Window):
 
     def build_time_controls(self):
             """
-            构造一行：Time [Entry] << < Play > >> Delay [Entry]
+            Construct a row: Time [Entry] << < Play > >> Delay [Entry]
             """
             global graph_delay
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
-            # “Time” Label
+            # 'Time' Label
             lbl_time = Gtk.Label(label="Time:")
             hbox.pack_start(lbl_time, False, False, 0)
 
-            # 时间 Entry
+            # Time entry
             self.time_entry = Gtk.Entry()
             self.time_entry.set_width_chars(8)
-            # 初始显示
+            # initial value
             self.time_entry.set_text(f"{graph_time}")
-            # 当用户敲回车或失焦时，解析并设置 time
+            # parse and set time when user presses Enter or focus leaves
             self.time_entry.connect("activate", lambda w: set_graph_time_from_entry(w))
             self.time_entry.connect("focus-out-event", lambda w, e: (set_graph_time_from_entry(w), False))
             hbox.pack_start(self.time_entry, False, False, 0)
 
-            # 按钮: <<, <
+            # buttons: <<, <
             btn_min = Gtk.Button(label="<<")
             btn_min.connect("clicked", lambda w: (min_graph_time(), update_time_entry(self.time_entry)))
             hbox.pack_start(btn_min, False, False, 0)
@@ -1379,17 +1385,17 @@ class GTKGraphWindow(Gtk.Window):
             btn_play.connect("clicked", lambda w: start_play_graph_time())
             hbox.pack_start(btn_play, False, False, 0)
 
-            # 按钮: >
+            # button: >
             btn_inc = Gtk.Button(label=">")
             btn_inc.connect("clicked", lambda w: (inc_graph_time(), update_time_entry(self.time_entry)))
             hbox.pack_start(btn_inc, False, False, 0)
 
-            # 按钮: >>
+            # button: >>
             btn_max = Gtk.Button(label=">>")
             btn_max.connect("clicked", lambda w: (max_graph_time(), update_time_entry(self.time_entry)))
             hbox.pack_start(btn_max, False, False, 0)
 
-            # 间隔
+            # delay
             lbl_delay = Gtk.Label(label="  Delay:")
             hbox.pack_start(lbl_delay, False, False, 0)
 
@@ -1403,7 +1409,7 @@ class GTKGraphWindow(Gtk.Window):
             return hbox
 
 # -----------------------------------------------------------------------------------
-#   主入口
+#   main entry point
 # -----------------------------------------------------------------------------------
 def main():
     win = GTKGraphWindow()
