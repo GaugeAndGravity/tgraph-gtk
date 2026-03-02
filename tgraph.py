@@ -324,17 +324,24 @@ def axplot2d_at_time(filelist, ax, t):
 
     ax.set_xlim(graph_limits['xmin'], graph_limits['xmax'])
     ax.set_ylim(graph_limits['vmin'], graph_limits['vmax'])
-    ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
-    ax.set_ylabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
 
-    # 标题与时间
-    title = graph_labels['title']
-    tf = graph_labels['timeformat']
-    if tf:
-        tstr = tf % t
-        # 标题右对齐显示时间
-        title += "    " + tstr
-    ax.set_title(title)
+    if graph_labelsOn:
+        ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
+        ax.set_ylabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
+
+        # 标题与时间
+        title = graph_labels['title']
+        tf = graph_labels['timeformat']
+        if tf:
+            tstr = tf % t
+            # 标题右对齐显示时间
+            title += "    " + tstr
+        ax.set_title(title)
+    else:
+        # hide labels/title by clearing text
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title("")
 
     if graph_plot_grid:
         ax.grid(True)
@@ -402,16 +409,22 @@ def axplot3d_at_time(filelist, ax, t):
     ax.set_ylim(graph_limits['ymin'], graph_limits['ymax'])
     ax.set_zlim(graph_limits['vmin'], graph_limits['vmax'])
 
-    ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
-    ax.set_ylabel(graph_labels['y-axis'], fontsize=graph_labels['fontsize'])
-    ax.set_zlabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
+    if graph_labelsOn:
+        ax.set_xlabel(graph_labels['x-axis'], fontsize=graph_labels['fontsize'])
+        ax.set_ylabel(graph_labels['y-axis'], fontsize=graph_labels['fontsize'])
+        ax.set_zlabel(graph_labels['v-axis'], fontsize=graph_labels['fontsize'])
 
-    title = graph_labels['title']
-    tf = graph_labels['timeformat']
-    if tf:
-        tstr = tf % t
-        title += "    " + tstr
-    ax.set_title(title)
+        title = graph_labels['title']
+        tf = graph_labels['timeformat']
+        if tf:
+            tstr = tf % t
+            title += "    " + tstr
+        ax.set_title(title)
+    else:
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_zlabel("")
+        ax.set_title("")
 
     # 注意 3D surface 不支持 legend
     if graph_legendOn and not graph_plot_surface:
