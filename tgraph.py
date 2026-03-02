@@ -76,7 +76,15 @@ def _parse_range(s: str):
     return float(parts[0]), float(parts[1])
 
 
-def parse_cmdline():
+def parse_cmdline(argv=None):
+    """Parse command line arguments.
+
+    Parameters
+    ----------
+    argv : list or None
+        List of arguments (excluding program name). If ``None`` the function
+        will use ``sys.argv[1:]``.  Providing ``argv`` is useful for tests.
+    """
     parser = argparse.ArgumentParser(
         description="GTK tgraph plotting tool (GTK front-end for tdata)")
     parser.add_argument("-c", "--cols", metavar="X[:Y]:V",
@@ -96,7 +104,7 @@ def parse_cmdline():
                         help="plot markers")
     parser.add_argument("files", nargs="*",
                         help="input files; supports { } and [ ] syntax")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 # call parser and apply options
@@ -549,6 +557,10 @@ global_canvas = None
 def replot():
     global global_fig, global_ax, global_canvas
     global graph_time, graph_3dOn
+
+    # in headless/test scenarios we may not have canvas/axes set yet
+    if global_ax is None or global_canvas is None:
+        return
 
     if graph_3dOn == 0:
         axplot2d_at_time(filelist, global_ax, graph_time)
