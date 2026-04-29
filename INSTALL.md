@@ -16,6 +16,22 @@ not require them.
 
 INSTALLATION
 
+`uv tool install` support
+
+The repository is packaged as a standard Python project, so you can install
+it as an isolated tool:
+
+    uv tool install .
+
+This places the `tgraph` executable in your uv tool bin directory (normally
+`~/.local/bin`).
+
+You can uninstall it with:
+
+    uv tool uninstall tgraph-gtk
+
+Legacy `make install` support
+
 A simple ``make install`` is provided to mimic the behaviour of typical
 GNU/Linux packages.  By default it installs into ``~/.local`` for a
 regular user and ``/usr/local`` when run as root.  The resulting layout

@@ -985,22 +985,22 @@ def about_dialog(_menuitem):
 def _find_help_file():
     """Return the path to ``tgraph.txt`` if it exists.
 
-    We prefer a copy next to ``tdata.py`` (useful during development); if
-    that file is missing look under ``$(prefix)/share/doc/tgraph`` where
-    ``make install`` now places it.  ``prefix`` is assumed to be the parent
-    directory of the directory containing this script (i.e. ``bin``).
+    Try development and installed locations in order.  ``uv tool install``
+    installs console scripts in ``~/.local/bin`` but the package itself lives
+    inside a virtualenv, so we also check ``sys.prefix/share/doc/tgraph``.
     """
-    # development / source tree location
-    candidate = os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt")
-    if os.path.exists(candidate):
-        return candidate
+    candidates = [
+        # development / source tree location
+        os.path.join(os.path.dirname(tdata.__file__), "tgraph.txt"),
+        # beside the installed module (wheel/module-data friendly)
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "tgraph.txt"),
+        # virtualenv/system prefix location used by data-files installs
+        os.path.join(sys.prefix, "share", "doc", "tgraph", "tgraph.txt"),
+    ]
 
-    # installed location: ../share/doc/tgraph/tgraph.txt
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    prefix = os.path.dirname(script_dir)
-    candidate = os.path.join(prefix, "share", "doc", "tgraph", "tgraph.txt")
-    if os.path.exists(candidate):
-        return candidate
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
 
     return None
 

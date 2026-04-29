@@ -1,11 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "tgraph-gtk"
 version = "0.1.0"
-description = "Add your description here"
+description = "GTK-based plotting tool for 1D/2D scientific data"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "pygobject>=3.52.3",
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
 ]
+
+[project.scripts]
+tgraph = "tgraph:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["tgraph", "tdata"]
+
+[tool.setuptools.data-files]
+"share/doc/tgraph" = ["src/tgraph.txt"]

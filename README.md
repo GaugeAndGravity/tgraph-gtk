@@ -6,9 +6,29 @@ This is a GTK port of [tgraph](https://github.com/wofti/tgraph). The original sc
 - and fits your global desktop GTK theme.
 
 ## Installation
-A simple `make install` target is provided; see the accompanying
-`INSTALL` file for details about prefixes and where the script will be
-copied.  You can also run directly from the source tree (`python3 src/tgraph.py`) if you prefer.
+
+### Install with `uv tool install` (recommended)
+
+You can install directly into `~/.local/bin` with:
+
+```bash
+uv tool install .
+```
+
+Or install from a git URL:
+
+```bash
+uv tool install git+https://github.com/wofti/tgraph-gtk
+```
+
+This exposes the `tgraph` command in your tool bin directory (typically
+`~/.local/bin`).
+
+### Alternative install methods
+
+A simple `make install` target is also provided; see `INSTALL.md` for
+details about prefixes and where files are copied. You can still run
+directly from the source tree (`python3 src/tgraph.py`) if you prefer.
 
 
 ## Help
