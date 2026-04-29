@@ -7,7 +7,7 @@ name = "tgraph-gtk"
 version = "0.1.0"
 description = "GTK-based plotting tool for 1D/2D scientific data"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "pygobject>=3.52.3",
     "matplotlib>=3.10.9",
